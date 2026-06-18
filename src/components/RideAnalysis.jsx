@@ -3,48 +3,8 @@ import {
   Zap, Heart, Wind, Mountain, Gauge, TrendingUp,
   MapPin, Activity, Cpu, ChevronLeft, ChevronRight, Flag,
 } from "lucide-react";
-
-// ── Engine (shared with dashboard) ──────────────────────────────
-const G = 9.80665, DT = 0.976;
-function airDensity(alt = 200, t = 15) {
-  const p = 101325 * Math.exp((-G * 0.0289644 * alt) / (8.31447 * (t + 273.15)));
-  return p / (287.058 * (t + 273.15));
-}
-function estimateCdA(hM, mKg, pos = "hoods") {
-  const bsa = 0.007184 * Math.pow(hM * 100, 0.725) * Math.pow(mKg, 0.425);
-  const pf = { hoods: 0.32, drops: 0.28, aero: 0.23, upright: 0.4 }[pos];
-  const Cd = { hoods: 1.0, drops: 0.88, aero: 0.7, upright: 1.15 }[pos];
-  return Cd * (bsa * pf + 0.07);
-}
-function calcPhys({ speed, slope, totalMass, cda, crr, rho, wind }) {
-  const air = speed + wind;
-  const pGrav = totalMass * G * slope * speed;
-  const pAir = 0.5 * rho * cda * air * air * speed;
-  const pRoll = totalMass * G * crr * Math.cos(Math.atan(slope)) * speed;
-  return { total: Math.max(0, Math.round((pGrav + pAir + pRoll) / DT)) };
-}
-function physicsTrust({ slope, speed }) {
-  let t = 1;
-  if (slope < -0.005) t -= Math.min(0.7, Math.abs(slope) * 30);
-  if (speed < 2) t -= 0.4;
-  return Math.max(0.05, Math.min(1, t));
-}
-function fuse(physTotal, hrP, trust, hrConf = 0.85) {
-  const hrW = (1 - trust) * hrConf;
-  const power = Math.max(0, Math.round(physTotal * (1 - hrW) + hrP * hrW));
-  let source = "fúzia";
-  if (hrW < 0.15) source = "fyzika";
-  else if (hrW > 0.7) source = "tep";
-  return { power, source };
-}
-function hrZone(hr, rest = 60, max = 190) {
-  const pct = (hr - rest) / (max - rest);
-  if (pct < 0.6) return { zone: 1, label: "Regenerácia", color: "#4ade80" };
-  if (pct < 0.7) return { zone: 2, label: "Vytrvalosť", color: "#7fb0ff" };
-  if (pct < 0.8) return { zone: 3, label: "Tempo", color: "#ffd54a" };
-  if (pct < 0.9) return { zone: 4, label: "Prah", color: "#ff8a3d" };
-  return { zone: 5, label: "VO2 max", color: "#ff5470" };
-}
+// Zdieľaný fyzikálny engine (pozri src/lib/physics.js)
+import { airDensity, estimateCdA, calcPower, physicsTrust, fuse, hrZone } from "../lib/physics.js";
 
 const CFG = { rider: 75, bike: 8.5, height: 180, crr: 0.0052, pos: "hoods", restHR: 60, maxHR: 190 };
 
@@ -71,10 +31,10 @@ function buildRide(nPoints = 120) {
     const slope = slopePct / 100;
     const effortHR = CFG.restHR + (CFG.maxHR - CFG.restHR) *
       Math.min(1, (slopePct > 0 ? 0.55 + slopePct * 0.035 : 0.42) + 0.03 * Math.sin(f * 30));
-    const phys = calcPhys({ speed, slope, totalMass: CFG.rider + CFG.bike, cda, crr: CFG.crr, rho, wind: 2 / 3.6 });
+    const phys = calcPower({ speed, slope, totalMass: CFG.rider + CFG.bike, cda, crr: CFG.crr, rho, wind: 2 / 3.6 });
     const hrP = Math.max(0, Math.round(2.6 * effortHR - 150));
     const trust = physicsTrust({ slope, speed });
-    const { power, source } = fuse(phys.total, hrP, trust);
+    const { power, source } = fuse(phys, hrP, trust);
     pts.push({
       x, y, dist: f * 42, // 42 km ride
       power, source,

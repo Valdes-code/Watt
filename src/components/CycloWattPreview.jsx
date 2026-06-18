@@ -3,37 +3,8 @@ import {
   Zap, Heart, Wind, Gauge, TrendingUp, Activity, Cpu,
   Bluetooth, MapPin, User, Play, Pause, Check, Search, X,
 } from "lucide-react";
-
-// ── Engine (condensed) ──────────────────────────────────────────
-const G = 9.80665, DT = 0.976;
-const airDensity = () => 1.196;
-const estimateCdA = (h, m) => 1.0 * (0.007184 * Math.pow(h * 100, 0.725) * Math.pow(m, 0.425) * 0.32 + 0.07);
-const calcPhys = ({ speed, slope, mass, cda, crr, wind }) => {
-  const air = speed + wind;
-  return Math.max(0, Math.round((mass * G * slope * speed + 0.5 * airDensity() * cda * air * air * speed + mass * G * crr * Math.cos(Math.atan(slope)) * speed) / DT));
-};
-const physicsTrust = ({ slope, speed }) => {
-  let t = 1;
-  if (slope < -0.005) t -= Math.min(0.7, Math.abs(slope) * 30);
-  if (speed < 2) t -= 0.4;
-  return Math.max(0.05, Math.min(1, t));
-};
-const fuse = (pt, hrP, trust, conf = 0.85) => {
-  const hrW = (1 - trust) * conf;
-  const power = Math.max(0, Math.round(pt * (1 - hrW) + hrP * hrW));
-  let source = "fúzia";
-  if (hrW < 0.15) source = "fyzika";
-  else if (hrW > 0.7) source = "tep";
-  return { power, source };
-};
-const hrZone = (hr) => {
-  const pct = (hr - 60) / 130;
-  if (pct < 0.6) return { z: 1, l: "Regenerácia", c: "#4ade80" };
-  if (pct < 0.7) return { z: 2, l: "Vytrvalosť", c: "#7fb0ff" };
-  if (pct < 0.8) return { z: 3, l: "Tempo", c: "#ffd54a" };
-  if (pct < 0.9) return { z: 4, l: "Prah", c: "#ff8a3d" };
-  return { z: 5, l: "VO2 max", c: "#ff5470" };
-};
+// Zdieľaný fyzikálny engine (pozri src/lib/physics.js)
+import { airDensity, estimateCdA, calcPower, physicsTrust, fuse, hrZone } from "../lib/physics.js";
 
 const CFG = { rider: 75, bike: 8.5, height: 180, crr: 0.0052 };
 const RIDE = [
@@ -54,7 +25,7 @@ function frame(t) {
   const wind = seg.wind / 3.6;
   const eHR = 60 + 130 * Math.min(1, (seg.slope > 0 ? 0.55 + seg.slope * 0.04 : 0.45) + noise(0.02));
   const cda = estimateCdA(CFG.height / 100, CFG.rider);
-  const phys = calcPhys({ speed, slope, mass: CFG.rider + CFG.bike, cda, crr: CFG.crr, wind });
+  const phys = calcPower({ speed, slope, totalMass: CFG.rider + CFG.bike, cda, crr: CFG.crr, rho: airDensity(), wind });
   const hrP = Math.max(0, Math.round(2.6 * eHR - 150));
   const trust = physicsTrust({ slope, speed });
   const f = fuse(phys, hrP, trust);
@@ -131,7 +102,7 @@ function RideTab() {
       <div style={{ display: "flex", alignItems: "center", marginBottom: 14 }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>Záznam jazdy</div>
-          <div style={{ fontSize: 10.5, color: d.zone.c, fontWeight: 600 }}>{d.seg.label}</div>
+          <div style={{ fontSize: 10.5, color: d.zone.color, fontWeight: 600 }}>{d.seg.label}</div>
         </div>
         <button onClick={() => setRunning((r) => !r)} style={{
           marginLeft: "auto", width: 34, height: 34, borderRadius: 10,
@@ -169,8 +140,8 @@ function RideTab() {
       </div>
 
       <div style={{ display: "flex", gap: 8 }}>
-        <Mini icon={Heart} label="Tep" value={d.hr} unit="bpm" c="#ff5470" badge={`Z${d.zone.z}`} badgeC={d.zone.c} />
-        <Mini icon={Activity} label="Zóna" value={d.zone.l} c={d.zone.c} small />
+        <Mini icon={Heart} label="Tep" value={d.hr} unit="bpm" c="#ff5470" badge={`Z${d.zone.zone}`} badgeC={d.zone.color} />
+        <Mini icon={Activity} label="Zóna" value={d.zone.label} c={d.zone.color} small />
       </div>
     </div>
   );
