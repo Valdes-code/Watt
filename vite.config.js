@@ -1,7 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-export default defineConfig({
+// Pri builde sa appka servíruje z podpriečinka /Watt/ (GitHub Pages),
+// počas `vite dev` aj testov ostáva base na koreni.
+export default defineConfig(({ command }) => ({
+  base: command === "build" ? "/Watt/" : "/",
   plugins: [react()],
   test: {
     environment: "node",
@@ -11,4 +14,4 @@ export default defineConfig({
       exclude: ["src/lib/**/*.test.js", "src/lib/sampleGpx.js"],
     },
   },
-});
+}));

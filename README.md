@@ -1,5 +1,7 @@
 # Watt
 
+[![CI](https://github.com/Valdes-code/Watt/actions/workflows/ci.yml/badge.svg)](https://github.com/Valdes-code/Watt/actions/workflows/ci.yml)
+
 **CycloWatt** – odhad výkonu na bicykli z fyziky, tepovej frekvencie a GPX trasy.
 
 Aplikácia dopočíta výkon (watty) aj bez wattmetra: kombinuje fyzikálny model
