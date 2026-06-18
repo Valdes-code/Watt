@@ -1,12 +1,21 @@
 import React, { useState, useMemo, useRef } from "react";
+import { MapContainer, TileLayer, Polyline, CircleMarker, useMapEvents } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import {
-  Zap, Heart, Wind, Mountain, Gauge, TrendingUp,
-  MapPin, Activity, Cpu, ChevronLeft, ChevronRight, Flag,
+  Zap, Heart, Gauge, TrendingUp, MapPin, Cpu, ChevronLeft, ChevronRight,
 } from "lucide-react";
 // Zdieľaný fyzikálny engine (pozri src/lib/physics.js)
 import { airDensity, estimateCdA, calcPower, physicsTrust, fuse, hrZone } from "../lib/physics.js";
 
 const CFG = { rider: 75, bike: 8.5, height: 180, crr: 0.0052, pos: "hoods", restHR: 60, maxHR: 190 };
+
+// Syntetickú trasu ukotvíme do reálnej oblasti (Vysoké Tatry) – aby sa
+// vykreslila na skutočnej mape. Normalizované 0..1 súradnice → lat/lon.
+const CENTER = [49.1553, 20.2780];
+const SPAN_LAT = 0.05;
+const SPAN_LON = 0.085;
+const geo = (p) => [CENTER[0] + (0.5 - p.y) * SPAN_LAT, CENTER[1] + (p.x - 0.5) * SPAN_LON];
 
 // ── Generate a synthetic ride: GPS path + per-point metrics ─────
 function buildRide(nPoints = 120) {
@@ -65,7 +74,21 @@ function powerColor(p, min, max) {
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
 
-const W = 360, H = 300; // map canvas size
+// Klik na mapu → nájde najbližší bod trasy a vyberie ho.
+function MapClick({ latlngs, onPick }) {
+  useMapEvents({
+    click(e) {
+      let best = 0, bd = Infinity;
+      latlngs.forEach((q, i) => {
+        const dx = q[0] - e.latlng.lat, dy = q[1] - e.latlng.lng;
+        const d = dx * dx + dy * dy;
+        if (d < bd) { bd = d; best = i; }
+      });
+      onPick(best);
+    },
+  });
+  return null;
+}
 
 export default function RideAnalysis() {
   const ride = useMemo(() => buildRide(120), []);
@@ -80,14 +103,9 @@ export default function RideAnalysis() {
   const colorFor = (p) =>
     mode === "power" ? powerColor(p.power, minP, maxP) : p.zone.color;
 
-  // Map path points to pixel coords
-  const px = (p) => ({ x: p.x * W, y: p.y * H });
-
-  // Build colored segments for the route
-  const segments = ride.slice(0, -1).map((p, i) => {
-    const a = px(p), b = px(ride[i + 1]);
-    return { a, b, color: colorFor(p), i };
-  });
+  // Reálne lat/lon súradnice trasy + ohraničenie pre fit mapy.
+  const latlngs = useMemo(() => ride.map(geo), [ride]);
+  const bounds = useMemo(() => L.latLngBounds(latlngs).pad(0.15), [latlngs]);
 
   // Stats
   const avgP = Math.round(powers.reduce((s, v) => s + v, 0) / powers.length);
@@ -100,8 +118,6 @@ export default function RideAnalysis() {
     const newIdx = Math.max(0, Math.min(ride.length - 1, Math.round(rel * (ride.length - 1))));
     setIdx(newIdx);
   };
-
-  const curPos = px(cur);
 
   return (
     <div style={{
@@ -146,59 +162,51 @@ export default function RideAnalysis() {
           })}
         </div>
 
-        {/* MAP */}
+        {/* MAP (Leaflet + OpenStreetMap) */}
         <div style={{
           background: "#0d1424", border: "1px solid #1e2940",
-          borderRadius: 18, padding: 12, marginBottom: 12, position: "relative",
+          borderRadius: 18, padding: 6, marginBottom: 12, position: "relative",
         }}>
-          <svg
-            viewBox={`0 0 ${W} ${H}`}
-            style={{ width: "100%", height: "auto", display: "block", cursor: "crosshair" }}
-            onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const mx = ((e.clientX - rect.left) / rect.width) * W;
-              const my = ((e.clientY - rect.top) / rect.height) * H;
-              // find nearest point
-              let best = 0, bd = Infinity;
-              ride.forEach((p, i) => {
-                const q = px(p);
-                const d = (q.x - mx) ** 2 + (q.y - my) ** 2;
-                if (d < bd) { bd = d; best = i; }
-              });
-              setIdx(best);
-            }}
-          >
-            {/* subtle grid */}
-            {[...Array(6)].map((_, i) => (
-              <line key={"v" + i} x1={(i * W) / 6} y1={0} x2={(i * W) / 6} y2={H} stroke="#141c2e" strokeWidth="1" />
-            ))}
-            {[...Array(5)].map((_, i) => (
-              <line key={"h" + i} x1={0} y1={(i * H) / 5} x2={W} y2={(i * H) / 5} stroke="#141c2e" strokeWidth="1" />
-            ))}
-            {/* route halo */}
-            {segments.map((s) => (
-              <line key={"halo" + s.i} x1={s.a.x} y1={s.a.y} x2={s.b.x} y2={s.b.y}
-                stroke="#000" strokeWidth="7" strokeLinecap="round" opacity="0.35" />
-            ))}
-            {/* colored route */}
-            {segments.map((s) => (
-              <line key={s.i} x1={s.a.x} y1={s.a.y} x2={s.b.x} y2={s.b.y}
-                stroke={s.color} strokeWidth="4.5" strokeLinecap="round" />
-            ))}
-            {/* start / finish */}
-            <circle cx={px(ride[0]).x} cy={px(ride[0]).y} r="6" fill="#4ade80" stroke="#0d1320" strokeWidth="2" />
-            <circle cx={px(ride[ride.length - 1]).x} cy={px(ride[ride.length - 1]).y} r="6" fill="#ff5470" stroke="#0d1320" strokeWidth="2" />
-            {/* current marker */}
-            <circle cx={curPos.x} cy={curPos.y} r="11" fill="none" stroke="#fff" strokeWidth="2.5" opacity="0.9" />
-            <circle cx={curPos.x} cy={curPos.y} r="6" fill="#fff" />
-          </svg>
+          <div style={{ height: 300, borderRadius: 14, overflow: "hidden" }}>
+            <MapContainer
+              bounds={bounds}
+              style={{ height: "100%", width: "100%", background: "#0d1424" }}
+              scrollWheelZoom
+              attributionControl={false}
+            >
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; OpenStreetMap'
+              />
+              <MapClick latlngs={latlngs} onPick={setIdx} />
+
+              {/* halo pod trasou */}
+              <Polyline positions={latlngs} pathOptions={{ color: "#000", weight: 8, opacity: 0.35, lineCap: "round" }} />
+              {/* farebné segmenty trasy */}
+              {ride.slice(0, -1).map((p, i) => (
+                <Polyline
+                  key={i}
+                  positions={[latlngs[i], latlngs[i + 1]]}
+                  pathOptions={{ color: colorFor(p), weight: 5, lineCap: "round" }}
+                />
+              ))}
+              {/* štart / cieľ */}
+              <CircleMarker center={latlngs[0]} radius={7}
+                pathOptions={{ color: "#0d1320", weight: 2, fillColor: "#4ade80", fillOpacity: 1 }} />
+              <CircleMarker center={latlngs[latlngs.length - 1]} radius={7}
+                pathOptions={{ color: "#0d1320", weight: 2, fillColor: "#ff5470", fillOpacity: 1 }} />
+              {/* aktuálny bod */}
+              <CircleMarker center={latlngs[idx]} radius={9}
+                pathOptions={{ color: "#fff", weight: 3, fillColor: "#fff", fillOpacity: 1 }} />
+            </MapContainer>
+          </div>
 
           {/* floating tooltip */}
           <div style={{
-            position: "absolute", top: 18, right: 18,
+            position: "absolute", top: 16, right: 16, zIndex: 1000,
             background: "rgba(13,20,36,0.92)", border: "1px solid #1e2940",
             borderRadius: 12, padding: "10px 13px", backdropFilter: "blur(8px)",
-            minWidth: 96,
+            minWidth: 96, pointerEvents: "none",
           }}>
             <div style={{ fontSize: 10, color: "#6b7a99", fontWeight: 600 }}>
               {cur.dist.toFixed(1)} km
@@ -298,7 +306,7 @@ export default function RideAnalysis() {
 
         <p style={{ fontSize: 11, color: "#5d6b88", textAlign: "center", marginTop: 14, lineHeight: 1.5 }}>
           Klikni kdekoľvek na mapu alebo potiahni po grafe – uvidíš výkon, tep a sklon
-          v danom mieste. V reálnej appke tu bude skutočná mapa (Mapbox / Apple Maps).
+          v danom mieste. Podklad: OpenStreetMap.
         </p>
       </div>
     </div>
