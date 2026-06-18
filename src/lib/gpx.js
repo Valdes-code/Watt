@@ -70,10 +70,15 @@ export function parseGpx(xml) {
     // Výkon býva v <extensions>, najčastejšie ako <power> alebo <ns3:power>.
     const powerRaw =
       tagValue(body, "power") ?? tagValue(body, "ns3:power") ?? tagValue(body, "pwr");
+    // Tep býva v <extensions> ako <gpxtpx:hr> (Garmin), <ns3:hr> alebo <hr>.
+    const hrRaw =
+      tagValue(body, "gpxtpx:hr") ?? tagValue(body, "ns3:hr") ??
+      tagValue(body, "hr") ?? tagValue(body, "heartrate");
 
     const ele = eleRaw != null ? parseFloat(eleRaw) : null;
     const time = timeRaw != null ? Date.parse(timeRaw) : null;
     const power = powerRaw != null ? parseFloat(powerRaw) : null;
+    const hr = hrRaw != null ? parseFloat(hrRaw) : null;
     if (power != null && Number.isFinite(power)) hasPower = true;
 
     points.push({
@@ -82,6 +87,7 @@ export function parseGpx(xml) {
       ele: Number.isFinite(ele) ? ele : null,
       time: Number.isFinite(time) ? time : null,
       power: Number.isFinite(power) ? power : null,
+      hr: Number.isFinite(hr) ? hr : null,
     });
   }
 
@@ -116,7 +122,8 @@ const MAX_SPEED = 30; // [m/s] ~108 km/h – nad tým je to GPS skok, nie jazda
  * @returns {{
  *   distanceKm:number, elevationGain:number, durationSec:number, movingSec:number,
  *   avgPower:number, maxPower:number, avgSpeedKmh:number, hasPower:boolean,
- *   segments: Array<{dist:number, slope:number, speed:number, power:number, source:string}>
+ *   segments: Array<{dist:number, slope:number, speed:number, power:number, source:string}>,
+ *   track: Array<{lat:number, lon:number, distKm:number, power:number, source:string, speed:number, slope:number, hr:number|null}>
  * }}
  */
 export function analyzeRide(points, profile = DEFAULT_PROFILE) {
@@ -188,6 +195,22 @@ export function analyzeRide(points, profile = DEFAULT_PROFILE) {
   const avgPower = movingSec > 0 ? Math.round(powerSum / movingSec) : 0;
   const avgSpeedKmh = movingSec > 0 ? +((distance / movingSec) * 3.6).toFixed(1) : 0;
 
+  // Dáta po bodoch (pre vykreslenie trasy na mape). Metriky bodu i pochádzajú
+  // z úseku, ktorý do neho vchádza (segments[i-1]); bod 0 preberá prvý úsek.
+  const track = points.map((p, i) => {
+    const seg = segments[Math.max(0, i - 1)];
+    return {
+      lat: p.lat,
+      lon: p.lon,
+      distKm: i === 0 ? 0 : seg.dist,
+      power: seg.power,
+      source: seg.source,
+      speed: seg.speed,
+      slope: seg.slope,
+      hr: p.hr ?? null,
+    };
+  });
+
   return {
     distanceKm: +distanceKm.toFixed(2),
     elevationGain: Math.round(elevationGain),
@@ -198,6 +221,7 @@ export function analyzeRide(points, profile = DEFAULT_PROFILE) {
     avgSpeedKmh,
     hasPower: measuredCount > 0,
     segments,
+    track,
   };
 }
 

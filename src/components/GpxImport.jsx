@@ -9,9 +9,10 @@ const SAMPLE_FILES = [
   { name: "Tatry_climb.fit", source: "Garmin FIT", unsupported: true },
 ];
 
-export default function GpxImport() {
+export default function GpxImport({ onImported }) {
   const [status, setStatus] = useState("idle");
   const [result, setResult] = useState(null);
+  const [fullRide, setFullRide] = useState(null); // celý výstup analyzeRide (vč. track)
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -33,6 +34,7 @@ export default function GpxImport() {
       try {
         const ride = importGpx(text);
         setResult(toResult(name, ride));
+        setFullRide({ name, ride });
         setStatus("done");
       } catch (e) {
         setError(e.message);
@@ -151,7 +153,16 @@ export default function GpxImport() {
             <div style={{ fontSize: 11.5, color: "#4ade80", fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
               {result.hasPower ? "✓ výkon z merača v súbore" : "✓ výkon dopočítaný z trasy"}
             </div>
-            <div style={{ fontSize: 11, color: "#6b7a99", marginTop: 8 }}>Nájdeš ju v Histórii a Analýze.</div>
+            <button
+              onClick={() => fullRide && onImported?.(fullRide.name, fullRide.ride)}
+              style={{
+                width: "100%", marginTop: 14, background: "#ffd54a", border: "none",
+                borderRadius: 12, padding: 13, cursor: "pointer", fontSize: 13.5, fontWeight: 800,
+                color: "#0d1320", display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+              }}
+            >
+              <MapPin size={15} /> Zobraziť trasu na mape
+            </button>
           </div>
         )}
 
