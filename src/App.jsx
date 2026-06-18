@@ -13,7 +13,21 @@ const VIEWS = {
 
 export default function App() {
   const [view, setView] = useState("gpx");
-  const Active = VIEWS[view].Component;
+  const [imported, setImported] = useState(null); // { name, ...analyzeRide() }
+
+  // GpxImport zavolá po úspešnom načítaní – uložíme jazdu a prepneme na mapu.
+  const handleImported = (name, ride) => {
+    setImported({ name, ...ride });
+    setView("ride");
+  };
+  const clearImport = () => setImported(null);
+
+  const renderActive = () => {
+    if (view === "ride") return <RideAnalysis imported={imported} onClearImport={clearImport} />;
+    if (view === "gpx") return <GpxImport onImported={handleImported} />;
+    if (view === "pose") return <PoseDetectionDemo />;
+    return <CycloWattPreview />;
+  };
 
   return (
     <div style={{ background: "#060911", minHeight: "100vh" }}>
@@ -34,7 +48,7 @@ export default function App() {
           );
         })}
       </nav>
-      <Active />
+      {renderActive()}
     </div>
   );
 }

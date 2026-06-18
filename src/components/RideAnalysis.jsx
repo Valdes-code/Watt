@@ -3,14 +3,14 @@ import { MapContainer, TileLayer, Polyline, CircleMarker, useMapEvents, useMap }
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
-  Zap, Heart, Gauge, TrendingUp, MapPin, Cpu, ChevronLeft, ChevronRight,
+  Zap, Heart, Gauge, TrendingUp, MapPin, Cpu, ChevronLeft, ChevronRight, X,
 } from "lucide-react";
 // Zdieľaný fyzikálny engine (pozri src/lib/physics.js)
 import { airDensity, estimateCdA, calcPower, physicsTrust, fuse, hrZone } from "../lib/physics.js";
 
 const CFG = { rider: 75, bike: 8.5, height: 180, crr: 0.0052, pos: "hoods", restHR: 60, maxHR: 190 };
 
-// Syntetickú trasu ukotvíme do reálnej oblasti (Vysoké Tatry) – aby sa
+// Syntetickú demo trasu ukotvíme do reálnej oblasti (Vysoké Tatry) – aby sa
 // vykreslila na skutočnej mape. Normalizované 0..1 súradnice → lat/lon.
 const CENTER = [49.1553, 20.2780];
 const SPAN_LAT = 0.05;
@@ -103,27 +103,48 @@ function MapClick({ latlngs, onPick }) {
   return null;
 }
 
-export default function RideAnalysis() {
-  const ride = useMemo(() => buildRide(120), []);
-  const [idx, setIdx] = useState(60);
+export default function RideAnalysis({ imported, onClearImport }) {
+  // Jednotná trasa: buď reálna importovaná (z GPX), alebo syntetické demo.
+  const ride = useMemo(() => {
+    if (imported) {
+      return imported.track.map((t) => ({
+        latlng: [t.lat, t.lon],
+        dist: t.distKm,
+        power: t.power,
+        source: t.source,
+        speed: t.speed,
+        slope: t.slope,
+        hr: t.hr,
+        zone: t.hr != null ? hrZone(t.hr, CFG.restHR, CFG.maxHR) : null,
+      }));
+    }
+    return buildRide(120).map((p) => ({ ...p, latlng: geo(p) }));
+  }, [imported]);
+
   const [mode, setMode] = useState("power"); // 'power' | 'zone'
+  const [idx, setIdx] = useState(0);
   const graphRef = useRef();
+
+  // Pri zmene zdroja (import ↔ demo) skoč na stred trasy.
+  useEffect(() => { setIdx(Math.floor(ride.length / 2)); }, [ride]);
 
   const powers = ride.map((p) => p.power);
   const minP = Math.min(...powers), maxP = Math.max(...powers);
-  const cur = ride[idx];
+  const cIdx = Math.max(0, Math.min(idx, ride.length - 1));
+  const cur = ride[cIdx];
 
+  const hasZones = ride.some((p) => p.zone);
   const colorFor = (p) =>
-    mode === "power" ? powerColor(p.power, minP, maxP) : p.zone.color;
+    mode === "zone" && p.zone ? p.zone.color : powerColor(p.power, minP, maxP);
 
   // Reálne lat/lon súradnice trasy + ohraničenie pre fit mapy.
-  const latlngs = useMemo(() => ride.map(geo), [ride]);
-  const bounds = useMemo(() => L.latLngBounds(latlngs).pad(0.15), [latlngs]);
+  const latlngs = useMemo(() => ride.map((p) => p.latlng), [ride]);
+  const bounds = useMemo(() => L.latLngBounds(latlngs).pad(0.1), [latlngs]);
 
-  // Stats
-  const avgP = Math.round(powers.reduce((s, v) => s + v, 0) / powers.length);
-  const maxPower = maxP;
-  const totalDist = ride[ride.length - 1].dist;
+  // Súhrn: pri importe z analyzeRide(), inak dopočítaný z demo trasy.
+  const avgP = imported ? imported.avgPower : Math.round(powers.reduce((s, v) => s + v, 0) / powers.length);
+  const maxPower = imported ? imported.maxPower : maxP;
+  const totalDist = imported ? imported.distanceKm : ride[ride.length - 1].dist;
 
   const handleGraph = (e) => {
     const rect = graphRef.current.getBoundingClientRect();
@@ -156,6 +177,28 @@ export default function RideAnalysis() {
           </div>
         </div>
 
+        {/* Banner pri importovanej trase */}
+        {imported && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8, marginBottom: 12,
+            background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.3)",
+            borderRadius: 12, padding: "9px 12px",
+          }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#4ade80", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              📍 {imported.name}
+            </span>
+            <span style={{ fontSize: 10.5, color: "#6b7a99" }}>
+              {imported.hasPower ? "merač" : "z fyziky"}
+            </span>
+            <button onClick={onClearImport} title="Zavrieť import (späť na demo)" style={{
+              background: "none", border: "none", cursor: "pointer", color: "#8a99b8",
+              display: "flex", alignItems: "center", padding: 2,
+            }}>
+              <X size={15} />
+            </button>
+          </div>
+        )}
+
         {/* Mode toggle */}
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
           {[
@@ -182,6 +225,7 @@ export default function RideAnalysis() {
         }}>
           <div style={{ height: 300, borderRadius: 14, overflow: "hidden" }}>
             <MapContainer
+              key={imported ? imported.name : "demo"}
               bounds={bounds}
               style={{ height: "100%", width: "100%", background: "#0d1424" }}
               scrollWheelZoom
@@ -192,7 +236,7 @@ export default function RideAnalysis() {
                 attribution='&copy; OpenStreetMap'
               />
               <MapClick latlngs={latlngs} onPick={setIdx} />
-              <FollowMarker center={latlngs[idx]} />
+              <FollowMarker center={latlngs[cIdx]} />
 
               {/* halo pod trasou */}
               <Polyline positions={latlngs} pathOptions={{ color: "#000", weight: 8, opacity: 0.35, lineCap: "round" }} />
@@ -210,7 +254,7 @@ export default function RideAnalysis() {
               <CircleMarker center={latlngs[latlngs.length - 1]} radius={7}
                 pathOptions={{ color: "#0d1320", weight: 2, fillColor: "#ff5470", fillOpacity: 1 }} />
               {/* aktuálny bod */}
-              <CircleMarker center={latlngs[idx]} radius={9}
+              <CircleMarker center={latlngs[cIdx]} radius={9}
                 pathOptions={{ color: "#fff", weight: 3, fillColor: "#fff", fillOpacity: 1 }} />
             </MapContainer>
           </div>
@@ -228,8 +272,8 @@ export default function RideAnalysis() {
             <div style={{ fontSize: 26, fontWeight: 800, color: colorFor(cur), lineHeight: 1.1 }}>
               {cur.power}<span style={{ fontSize: 13, marginLeft: 2 }}>W</span>
             </div>
-            <div style={{ fontSize: 10.5, color: cur.zone.color, fontWeight: 600 }}>
-              {cur.zone.label}
+            <div style={{ fontSize: 10.5, color: cur.zone ? cur.zone.color : "#6b7a99", fontWeight: 600 }}>
+              {cur.zone ? cur.zone.label : "tep neznámy"}
             </div>
           </div>
         </div>
@@ -250,21 +294,21 @@ export default function RideAnalysis() {
               <div key={i} style={{
                 flex: 1,
                 height: `${Math.max(4, ((p.power - minP) / (maxP - minP || 1)) * 100)}%`,
-                background: i === idx ? "#fff" : colorFor(p),
-                opacity: i === idx ? 1 : 0.85,
+                background: i === cIdx ? "#fff" : colorFor(p),
+                opacity: i === cIdx ? 1 : 0.85,
                 borderRadius: 1,
               }} />
             ))}
             {/* position line */}
             <div style={{
               position: "absolute", top: 0, bottom: 0,
-              left: `${(idx / (ride.length - 1)) * 100}%`,
+              left: `${(cIdx / (ride.length - 1)) * 100}%`,
               width: 2, background: "#fff", pointerEvents: "none",
             }} />
           </div>
           {/* slider for fine control */}
           <input
-            type="range" min={0} max={ride.length - 1} value={idx}
+            type="range" min={0} max={ride.length - 1} value={cIdx}
             onChange={(e) => setIdx(parseInt(e.target.value))}
             style={{ width: "100%", marginTop: 10, accentColor: "#ff8a3d", cursor: "pointer" }}
           />
@@ -273,7 +317,7 @@ export default function RideAnalysis() {
         {/* DETAIL at current point */}
         <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
           <Stat icon={Zap} label="Výkon" value={cur.power} unit="W" color={colorFor(cur)} />
-          <Stat icon={Heart} label="Tep" value={cur.hr} unit="bpm" color="#ff5470" />
+          <Stat icon={Heart} label="Tep" value={cur.hr != null ? cur.hr : "—"} unit={cur.hr != null ? "bpm" : ""} color="#ff5470" />
         </div>
         <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
           <Stat icon={Gauge} label="Rýchlosť" value={cur.speed} unit="km/h" color="#7fb0ff" />
@@ -294,7 +338,7 @@ export default function RideAnalysis() {
               <Cpu size={12} /> zdroj: {cur.source}
             </div>
             <div style={{ fontSize: 10.5, color: "#6b7a99", marginTop: 2 }}>
-              bod {idx + 1} / {ride.length}
+              bod {cIdx + 1} / {ride.length}
             </div>
           </div>
           <button onClick={() => setIdx((i) => Math.min(ride.length - 1, i + 1))} style={navBtn}>
@@ -310,17 +354,20 @@ export default function RideAnalysis() {
               <div style={{ width: 140, height: 8, borderRadius: 4, background: "linear-gradient(90deg,#3b82f6,#4ade80,#ffd54a,#ff5470)" }} />
               <span style={{ fontSize: 10.5, color: "#6b7a99" }}>{maxP}W</span>
             </>
-          ) : (
+          ) : hasZones ? (
             [1, 2, 3, 4, 5].map((z) => {
               const c = hrZone(CFG.restHR + (CFG.maxHR - CFG.restHR) * (0.5 + z * 0.08)).color;
               return <span key={z} style={{ fontSize: 10, fontWeight: 700, color: "#0d1320", background: c, padding: "2px 8px", borderRadius: 6 }}>Z{z}</span>;
             })
+          ) : (
+            <span style={{ fontSize: 10.5, color: "#6b7a99" }}>GPX bez tepu – farbím podľa výkonu</span>
           )}
         </div>
 
         <p style={{ fontSize: 11, color: "#5d6b88", textAlign: "center", marginTop: 14, lineHeight: 1.5 }}>
-          Klikni kdekoľvek na mapu alebo potiahni po grafe – uvidíš výkon, tep a sklon
-          v danom mieste. Podklad: OpenStreetMap.
+          {imported
+            ? "Reálna trasa z tvojho GPX. Klikni na mapu alebo potiahni po grafe – uvidíš výkon, tep a sklon v danom mieste. Podklad: OpenStreetMap."
+            : "Ukážková jazda. Klikni kdekoľvek na mapu alebo potiahni po grafe – a importom vlastného GPX (záložka Import) sem dostaneš svoju trasu. Podklad: OpenStreetMap."}
         </p>
       </div>
     </div>
