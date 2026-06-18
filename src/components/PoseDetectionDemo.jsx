@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { Camera, Zap, Wind, User, Check, Activity } from "lucide-react";
+// Zdieľaný fyzikálny engine (pozri src/lib/physics.js)
+import { calcPower } from "../lib/physics.js";
 
 // Position presets with stick-figure keypoints (front view) + CdA
 const POSITIONS = {
@@ -25,13 +27,16 @@ const POSITIONS = {
   },
 };
 
-// Power at 35 km/h for a given CdA (simplified)
+// Power on flat ground at a given speed for a given CdA.
 function powerAt(cda, speedKmh = 35) {
-  const v = speedKmh / 3.6;
-  const rho = 1.196, mass = 83.5, G = 9.80665, crr = 0.005;
-  const pAir = 0.5 * rho * cda * v * v * v;
-  const pRoll = mass * G * crr * v;
-  return Math.round((pAir + pRoll) / 0.976);
+  return calcPower({
+    speed: speedKmh / 3.6,
+    slope: 0,
+    totalMass: 83.5,
+    cda,
+    crr: 0.005,
+    rho: 1.196,
+  });
 }
 
 export default function PoseDetectionDemo() {
