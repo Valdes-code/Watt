@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useRef } from "react";
-import { MapContainer, TileLayer, Polyline, CircleMarker, useMapEvents } from "react-leaflet";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { MapContainer, TileLayer, Polyline, CircleMarker, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
@@ -72,6 +72,19 @@ function powerColor(p, min, max) {
   const a = stops[i], b = stops[Math.min(stops.length - 1, i + 1)];
   const c = a.map((v, k) => Math.round(v + (b[k] - v) * frac));
   return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+// Mapa sleduje aktuálny bod – pri scrube slidera / kliknutí sa naň
+// plynule vycentruje, pričom si zachová priblíženie zvolené prstami.
+// Prvé vykreslenie preskočíme, nech ostane úvodný „celá trasa“ pohľad.
+function FollowMarker({ center }) {
+  const map = useMap();
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    map.panTo(center, { animate: true, duration: 0.25 });
+  }, [center[0], center[1]]);
+  return null;
 }
 
 // Klik na mapu → nájde najbližší bod trasy a vyberie ho.
@@ -179,6 +192,7 @@ export default function RideAnalysis() {
                 attribution='&copy; OpenStreetMap'
               />
               <MapClick latlngs={latlngs} onPick={setIdx} />
+              <FollowMarker center={latlngs[idx]} />
 
               {/* halo pod trasou */}
               <Polyline positions={latlngs} pathOptions={{ color: "#000", weight: 8, opacity: 0.35, lineCap: "round" }} />
