@@ -6,6 +6,7 @@ import { SAMPLE_GPX } from "../lib/sampleGpx.js";
 const SAMPLE_FILES = [
   { name: "Morning_Ride.gpx", source: "Strava", gpx: SAMPLE_GPX.morning },
   { name: "Activity_2026.gpx", source: "Garmin", gpx: SAMPLE_GPX.garmin },
+  { name: "Vikendovy_okruh.gpx", source: "Plánovaná trasa", gpx: SAMPLE_GPX.route },
   { name: "Tatry_climb.fit", source: "Garmin FIT", unsupported: true },
 ];
 
@@ -23,6 +24,7 @@ export default function GpxImport({ onImported }) {
     power: ride.avgPower,
     elev: ride.elevationGain,
     hasPower: ride.hasPower,
+    planned: ride.planned,
   });
 
   const parseText = (name, text) => {
@@ -142,16 +144,22 @@ export default function GpxImport({ onImported }) {
           <div style={{ background: "#4ade801a", border: "1px solid #4ade8055", borderRadius: 14, padding: 16, marginTop: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
               <Check size={16} color="#4ade80" />
-              <span style={{ fontSize: 14, fontWeight: 800, color: "#4ade80" }}>Jazda importovaná</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: "#4ade80" }}>
+                {result.planned ? "Trasa pripravená" : "Jazda importovaná"}
+              </span>
             </div>
             <div style={{ fontSize: 11.5, color: "#8a99b8", marginBottom: 14 }}>{result.name}</div>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
               <St icon={MapPin} value={result.dist.toFixed(1)} unit="km" label="Vzdialenosť" c="#7fb0ff" />
-              <St icon={Zap} value={result.power} unit="W" label="⌀ výkon" c="#ffd54a" />
+              <St icon={Zap} value={result.power} unit="W" label={result.planned ? "⌀ odhad" : "⌀ výkon"} c="#ffd54a" />
               <St icon={Mountain} value={result.elev} unit="m" label="Prevýšenie" c="#ff8a3d" />
             </div>
             <div style={{ fontSize: 11.5, color: "#4ade80", fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
-              {result.hasPower ? "✓ výkon z merača v súbore" : "✓ výkon dopočítaný z trasy"}
+              {result.planned
+                ? "✓ plánovaná trasa – výkon je odhad pri ~22 km/h"
+                : result.hasPower
+                  ? "✓ výkon z merača v súbore"
+                  : "✓ výkon dopočítaný z trasy"}
             </div>
             <button
               onClick={() => fullRide && onImported?.(fullRide.name, fullRide.ride)}

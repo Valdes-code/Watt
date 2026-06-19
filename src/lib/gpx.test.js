@@ -220,4 +220,62 @@ describe("importGpx na ukážkových trasách", () => {
     expect(ride.hasPower).toBe(true);
     expect(ride.avgPower).toBeGreaterThan(100);
   });
+
+  it("Plánovaná trasa (<rtept>, bez času) – odhadne výkon a je vidno na mape", () => {
+    const ride = importGpx(SAMPLE_GPX.route);
+    expect(ride.planned).toBe(true);
+    expect(ride.hasPower).toBe(false);
+    expect(ride.distanceKm).toBeGreaterThan(30);
+    expect(ride.track.length).toBeGreaterThan(10);
+    // odhad výkonu + ETA z plánovanej rýchlosti
+    expect(ride.avgPower).toBeGreaterThan(0);
+    expect(ride.durationSec).toBeGreaterThan(0);
+    expect(ride.track.some((t) => t.source === "odhad")).toBe(true);
+  });
+});
+
+describe("plánovaná trasa", () => {
+  const route = (body) => `<?xml version="1.0"?>
+<gpx version="1.1"><rte>
+${body}
+</rte></gpx>`;
+
+  it("parseGpx číta <rtept> ako fallback a označí trasu ako plánovanú", () => {
+    const { points, planned, hasPower } = parseGpx(
+      route(`
+        <rtept lat="48.10" lon="17.10"><ele>200</ele></rtept>
+        <rtept lat="48.11" lon="17.10"><ele>240</ele></rtept>`)
+    );
+    expect(points).toHaveLength(2);
+    expect(points[0]).toMatchObject({ lat: 48.1, lon: 17.1, ele: 200, time: null });
+    expect(planned).toBe(true);
+    expect(hasPower).toBe(false);
+  });
+
+  it("analyzeRide bez plan-flagu necháva výkon na 0 (spätná kompatibilita)", () => {
+    const { points } = parseGpx(
+      route(`
+        <rtept lat="48.0" lon="17.0"><ele>200</ele></rtept>
+        <rtept lat="48.01" lon="17.0"><ele>210</ele></rtept>`)
+    );
+    const ride = analyzeRide(points);
+    expect(ride.segments[0].power).toBe(0);
+    expect(ride.segments[0].speed).toBe(0);
+  });
+
+  it("plan-flag odhadne rýchlosť aj výkon; do kopca menšia rýchlosť", () => {
+    const { points } = parseGpx(
+      route(`
+        <rtept lat="48.0" lon="17.0"><ele>200</ele></rtept>
+        <rtept lat="48.02" lon="17.0"><ele>320</ele></rtept>
+        <rtept lat="48.04" lon="17.0"><ele>320</ele></rtept>`)
+    );
+    const ride = analyzeRide(points, undefined, { plan: true });
+    expect(ride.planned).toBe(true);
+    expect(ride.segments[0].source).toBe("odhad");
+    expect(ride.segments[0].power).toBeGreaterThan(0);
+    // stúpajúci úsek (200→320 m) má nižšiu odhadovanú rýchlosť než rovinka
+    expect(ride.segments[0].speed).toBeLessThan(ride.segments[1].speed);
+    expect(ride.durationSec).toBeGreaterThan(0);
+  });
 });

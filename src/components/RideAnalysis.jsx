@@ -188,7 +188,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
               📍 {imported.name}
             </span>
             <span style={{ fontSize: 10.5, color: "#6b7a99" }}>
-              {imported.hasPower ? "merač" : "z fyziky"}
+              {imported.planned ? "plán · odhad" : imported.hasPower ? "merač" : "z fyziky"}
             </span>
             <button onClick={onClearImport} title="Zavrieť import (späť na demo)" style={{
               background: "none", border: "none", cursor: "pointer", color: "#8a99b8",
@@ -366,7 +366,9 @@ export default function RideAnalysis({ imported, onClearImport }) {
 
         <p style={{ fontSize: 11, color: "#5d6b88", textAlign: "center", marginTop: 14, lineHeight: 1.5 }}>
           {imported
-            ? "Reálna trasa z tvojho GPX. Klikni na mapu alebo potiahni po grafe – uvidíš výkon, tep a sklon v danom mieste. Podklad: OpenStreetMap."
+            ? imported.planned
+              ? "Plánovaná trasa z tvojho GPX – ešte neodjazdená. Výkon je odhad pri ~22 km/h (spomalený do kopca, rýchlejší z kopca). Klikni na mapu alebo potiahni po grafe. Podklad: OpenStreetMap."
+              : "Reálna trasa z tvojho GPX. Klikni na mapu alebo potiahni po grafe – uvidíš výkon, tep a sklon v danom mieste. Podklad: OpenStreetMap."
             : "Ukážková jazda. Klikni kdekoľvek na mapu alebo potiahni po grafe – a importom vlastného GPX (záložka Import) sem dostaneš svoju trasu. Podklad: OpenStreetMap."}
         </p>
       </div>
