@@ -137,6 +137,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const [mode, setMode] = useState("power"); // 'power' | 'zone' – farbenie mapy
   const [metric, setMetric] = useState("power"); // 'power' | 'ele' – veľký graf pozdĺž trasy
   const [idx, setIdx] = useState(0);
+  const [tipIdx, setTipIdx] = useState(0); // ktorá hodnota sa ukazuje v rohu mapy (len plán)
   const [fetchedEle, setFetchedEle] = useState(null); // výšky dotiahnuté online
   const [eleStatus, setEleStatus] = useState("idle"); // idle | loading | error
   const [mapBounds, setMapBounds] = useState(null); // výrez mapy (pri priblížení)
@@ -146,6 +147,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
   // aj výrez mapy (graf zobrazí celú trasu).
   useEffect(() => {
     setIdx(Math.floor(ride.length / 2));
+    setTipIdx(0);
     setFetchedEle(null);
     setEleStatus("idle");
     setMapBounds(null);
@@ -195,6 +197,19 @@ export default function RideAnalysis({ imported, onClearImport }) {
   // Existencia výškových dát sa posudzuje z celej trasy (nie z výrezu).
   const hasElevation = Math.max(...eles) - Math.min(...eles) >= 1;
 
+  // Celkové stúpanie celej trasy a stúpanie zostávajúce od aktuálneho bodu do cieľa
+  // (súčet kladných prírastkov výšky). Slúži pre prepínateľný štítok v rohu mapy.
+  const totalEleGain = useMemo(() => {
+    let g = 0;
+    for (let i = 1; i < eles.length; i++) g += Math.max(0, eles[i] - eles[i - 1]);
+    return Math.round(g);
+  }, [eles]);
+  const remEleGain = useMemo(() => {
+    let g = 0;
+    for (let i = cIdx + 1; i < eles.length; i++) g += Math.max(0, eles[i] - eles[i - 1]);
+    return Math.round(g);
+  }, [eles, cIdx]);
+
   // Os X grafov škálovaná podľa vzdialenosti v rámci viditeľného okna.
   const wDist0 = ride[winStart].dist;
   const wSpan = (ride[winEnd].dist - wDist0) || 1;
@@ -229,6 +244,16 @@ export default function RideAnalysis({ imported, onClearImport }) {
   // skryjeme a namiesto neho ukážeme vzdialenosť z aktuálneho bodu do cieľa.
   const planned = !!imported?.planned;
   const distToFinish = Math.max(0, totalDist - cur.dist);
+
+  // Prepínateľné hodnoty štítku v rohu mapy (len plánovaná trasa). Klik = ďalšia.
+  const ele = (v) => (hasElevation ? { value: String(v), unit: "m" } : { value: "—", unit: "" });
+  const tips = [
+    { label: "celková dĺžka trate", value: totalDist.toFixed(1), unit: "km", color: "#7fb0ff" },
+    { label: "celkové prevýšenie trate", ...ele(totalEleGain), color: "#ff8a3d" },
+    { label: "vzdialenosť do cieľa", value: distToFinish.toFixed(1), unit: "km", color: "#7fb0ff" },
+    { label: "prevýšenie do cieľa", ...ele(remEleGain), color: "#ff8a3d" },
+  ];
+  const tip = tips[tipIdx % tips.length];
 
   // Scrub na grafe/profile → najbližší bod podľa vzdialenosti (rovnaká os km).
   const scrub = (e, ref) => {
@@ -360,25 +385,42 @@ export default function RideAnalysis({ imported, onClearImport }) {
             </MapContainer>
           </div>
 
-          {/* floating tooltip */}
-          <div style={{
-            position: "absolute", top: 16, right: 16, zIndex: 1000,
-            background: "rgba(13,20,36,0.92)", border: "1px solid #1e2940",
-            borderRadius: 12, padding: "10px 13px", backdropFilter: "blur(8px)",
-            minWidth: 96, pointerEvents: "none",
-          }}>
-            <div style={{ fontSize: 10, color: "#6b7a99", fontWeight: 600 }}>
-              {cur.dist.toFixed(1)} km
-            </div>
+          {/* floating tooltip – pri pláne prepínateľný klikom, inak živý výkon */}
+          <div
+            onClick={planned ? () => setTipIdx((i) => (i + 1) % tips.length) : undefined}
+            title={planned ? "Klikni pre ďalšiu hodnotu" : undefined}
+            style={{
+              position: "absolute", top: 16, right: 16, zIndex: 1000,
+              background: "rgba(13,20,36,0.92)", border: "1px solid #1e2940",
+              borderRadius: 12, padding: "10px 13px", backdropFilter: "blur(8px)",
+              minWidth: 96, pointerEvents: planned ? "auto" : "none",
+              cursor: planned ? "pointer" : "default", userSelect: "none",
+            }}
+          >
             {planned ? (
               <>
-                <div style={{ fontSize: 26, fontWeight: 800, color: "#7fb0ff", lineHeight: 1.1 }}>
-                  {distToFinish.toFixed(1)}<span style={{ fontSize: 13, marginLeft: 2 }}>km</span>
+                <div style={{ fontSize: 10, color: "#6b7a99", fontWeight: 600 }}>
+                  bod {cur.dist.toFixed(1)} km
                 </div>
-                <div style={{ fontSize: 10.5, color: "#6b7a99", fontWeight: 600 }}>do cieľa</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: tip.color, lineHeight: 1.1 }}>
+                  {tip.value}<span style={{ fontSize: 13, marginLeft: 2 }}>{tip.unit}</span>
+                </div>
+                <div style={{ fontSize: 10.5, color: "#8a99b8", fontWeight: 600 }}>{tip.label}</div>
+                {/* indikátor, ktorá zo 4 hodnôt je aktívna */}
+                <div style={{ display: "flex", gap: 4, marginTop: 7 }}>
+                  {tips.map((_, i) => (
+                    <span key={i} style={{
+                      width: 5, height: 5, borderRadius: "50%",
+                      background: i === tipIdx ? tip.color : "#2a3550",
+                    }} />
+                  ))}
+                </div>
               </>
             ) : (
               <>
+                <div style={{ fontSize: 10, color: "#6b7a99", fontWeight: 600 }}>
+                  {cur.dist.toFixed(1)} km
+                </div>
                 <div style={{ fontSize: 26, fontWeight: 800, color: colorFor(cur), lineHeight: 1.1 }}>
                   {cur.power}<span style={{ fontSize: 13, marginLeft: 2 }}>W</span>
                 </div>
