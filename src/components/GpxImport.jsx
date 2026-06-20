@@ -1,7 +1,6 @@
 import React, { useState, useRef } from "react";
 import { Upload, FileText, Check, MapPin, Zap, Mountain, AlertCircle, ChevronRight } from "lucide-react";
-import { parseGpx, analyzeRide } from "../lib/gpx.js";
-import { enrichWithElevation } from "../lib/elevation.js";
+import { importGpx } from "../lib/gpx.js";
 import { SAMPLE_GPX } from "../lib/sampleGpx.js";
 
 const SAMPLE_FILES = [
@@ -16,48 +15,34 @@ export default function GpxImport({ onImported }) {
   const [result, setResult] = useState(null);
   const [fullRide, setFullRide] = useState(null); // celý výstup analyzeRide (vč. track)
   const [error, setError] = useState(null);
-  const [loadingNote, setLoadingNote] = useState("parsujem GPS body, dopočítavam výkon");
   const fileInputRef = useRef(null);
 
   // Z výstupu analyzeRide() spraví tvar, ktorý zobrazuje "done" panel nižšie.
-  const toResult = (name, ride, eleSource) => ({
+  const toResult = (name, ride) => ({
     name,
     dist: ride.distanceKm,
     power: ride.avgPower,
     elev: ride.elevationGain,
     hasPower: ride.hasPower,
     planned: ride.planned,
-    eleSource, // "gpx" | "online" | "none"
   });
 
-  const parseText = async (name, text) => {
+  const parseText = (name, text) => {
     setStatus("loading");
-    setLoadingNote("parsujem GPS body, dopočítavam výkon");
     setResult(null);
     setError(null);
-    try {
-      const { points, planned } = parseGpx(text);
-      let pts = points;
-      let eleSource = points.some((p) => p.ele != null) ? "gpx" : "none";
-      // Plánovaná trasa bez výšok → skús dopočítať výšky terénu online,
-      // aby sa dal vykresliť profil prevýšenia a presnejšie odhadnúť výkon.
-      if (eleSource === "none") {
-        setLoadingNote("trasa nemá výšky – sťahujem výškový profil terénu…");
-        try {
-          pts = await enrichWithElevation(points);
-          eleSource = "online";
-        } catch {
-          eleSource = "none"; // bez siete pokračujeme aspoň s trasou
-        }
+    // Drobné oneskorenie, aby bol viditeľný stav spracovania pri malých súboroch.
+    setTimeout(() => {
+      try {
+        const ride = importGpx(text);
+        setResult(toResult(name, ride));
+        setFullRide({ name, ride });
+        setStatus("done");
+      } catch (e) {
+        setError(e.message);
+        setStatus("error");
       }
-      const ride = analyzeRide(pts, undefined, { plan: planned });
-      setResult(toResult(name, ride, eleSource));
-      setFullRide({ name, ride });
-      setStatus("done");
-    } catch (e) {
-      setError(e.message);
-      setStatus("error");
-    }
+    }, 400);
   };
 
   // Klik na ukážkový súbor
@@ -133,7 +118,7 @@ export default function GpxImport({ onImported }) {
         {status === "loading" && (
           <div style={{ background: "#101725", border: "1px solid #1e2940", borderRadius: 14, padding: 18, marginTop: 16, textAlign: "center" }}>
             <div style={{ fontSize: 13, color: "#ffd54a", fontWeight: 700 }}>Spracúvam dáta…</div>
-            <div style={{ fontSize: 11, color: "#6b7a99", marginTop: 4 }}>{loadingNote}</div>
+            <div style={{ fontSize: 11, color: "#6b7a99", marginTop: 4 }}>parsujem GPS body, dopočítavam výkon</div>
           </div>
         )}
 
@@ -176,16 +161,6 @@ export default function GpxImport({ onImported }) {
                   ? "✓ výkon z merača v súbore"
                   : "✓ výkon dopočítaný z trasy"}
             </div>
-            {result.eleSource === "online" && (
-              <div style={{ fontSize: 11, color: "#7fb0ff", fontWeight: 600, marginTop: 4 }}>
-                ✓ výšky dopočítané online (open-meteo)
-              </div>
-            )}
-            {result.eleSource === "none" && (
-              <div style={{ fontSize: 11, color: "#ff8a3d", fontWeight: 600, marginTop: 4 }}>
-                ⚠ bez výšok – profil prevýšenia sa nevykreslí (chýba sieť alebo &lt;ele&gt;)
-              </div>
-            )}
             <button
               onClick={() => fullRide && onImported?.(fullRide.name, fullRide.ride)}
               style={{

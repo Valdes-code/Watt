@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 // Zdieľaný fyzikálny engine (pozri src/lib/physics.js)
 import { airDensity, estimateCdA, calcPower, physicsTrust, fuse, hrZone } from "../lib/physics.js";
+import { fetchElevations } from "../lib/elevation.js";
 
 const CFG = { rider: 75, bike: 8.5, height: 180, crr: 0.0052, pos: "hoods", restHR: 60, maxHR: 190 };
 
@@ -124,11 +125,17 @@ export default function RideAnalysis({ imported, onClearImport }) {
 
   const [mode, setMode] = useState("power"); // 'power' | 'zone'
   const [idx, setIdx] = useState(0);
+  const [fetchedEle, setFetchedEle] = useState(null); // výšky dotiahnuté online
+  const [eleStatus, setEleStatus] = useState("idle"); // idle | loading | error
   const graphRef = useRef();
   const eleRef = useRef();
 
-  // Pri zmene zdroja (import ↔ demo) skoč na stred trasy.
-  useEffect(() => { setIdx(Math.floor(ride.length / 2)); }, [ride]);
+  // Pri zmene zdroja (import ↔ demo) skoč na stred trasy a zahoď dotiahnuté výšky.
+  useEffect(() => {
+    setIdx(Math.floor(ride.length / 2));
+    setFetchedEle(null);
+    setEleStatus("idle");
+  }, [ride]);
 
   const powers = ride.map((p) => p.power);
   const minP = Math.min(...powers), maxP = Math.max(...powers);
@@ -162,13 +169,14 @@ export default function RideAnalysis({ imported, onClearImport }) {
   // Profil prevýšenia: použijeme reálne výšky z GPX, inak ich dopočítame
   // integráciou sklonu po vzdialenosti (funguje aj pre demo trasu).
   const eles = useMemo(() => {
+    if (fetchedEle && fetchedEle.length === ride.length) return fetchedEle;
     if (ride.every((p) => p.ele != null)) return ride.map((p) => p.ele);
     let e = 0;
     return ride.map((p, i) => {
       if (i > 0) e += (p.slope / 100) * (p.dist - ride[i - 1].dist) * 1000;
       return e;
     });
-  }, [ride]);
+  }, [ride, fetchedEle]);
   const eMin = Math.min(...eles), eMax = Math.max(...eles);
   // Trasa bez výškových dát (alebo úplne rovná) → nemá zmysel kresliť profil.
   const hasElevation = eMax - eMin >= 1;
@@ -193,6 +201,22 @@ export default function RideAnalysis({ imported, onClearImport }) {
   };
   const handleGraph = (e) => scrub(e, graphRef);
   const handleEle = (e) => scrub(e, eleRef);
+
+  // Dotiahne výšky terénu online (open-meteo) pre trasy bez <ele> v GPX.
+  const loadElevation = async () => {
+    setEleStatus("loading");
+    try {
+      const els = await fetchElevations(ride.map((p) => ({ lat: p.latlng[0], lon: p.latlng[1] })));
+      if (els.some((v) => typeof v === "number")) {
+        setFetchedEle(els);
+        setEleStatus("idle");
+      } else {
+        setEleStatus("error");
+      }
+    } catch {
+      setEleStatus("error");
+    }
+  };
 
   return (
     <div style={{
@@ -365,12 +389,29 @@ export default function RideAnalysis({ imported, onClearImport }) {
               </div>
             </>
           ) : (
-            <div style={{ height: 80, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 4 }}>
+            <div style={{ minHeight: 80, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 6, padding: "6px 0" }}>
               <Mountain size={20} color="#6b7a99" style={{ opacity: 0.6 }} />
               <span style={{ fontSize: 12, color: "#8a99b8", fontWeight: 600 }}>Trasa neobsahuje výškové dáta</span>
-              <span style={{ fontSize: 10.5, color: "#6b7a99", lineHeight: 1.4 }}>
-                Tvoje GPX nemá uložené výšky (&lt;ele&gt;). Profil sa preto nedá vykresliť.
+              <span style={{ fontSize: 10.5, color: "#6b7a99", lineHeight: 1.4, maxWidth: 300 }}>
+                Tvoje GPX nemá uložené výšky (&lt;ele&gt;). Môžem ich dopočítať z terénu online.
               </span>
+              {eleStatus === "error" && (
+                <span style={{ fontSize: 10.5, color: "#ff8a3d", fontWeight: 600 }}>
+                  Výšky sa nepodarilo stiahnuť (sieť/limit). Skús znova.
+                </span>
+              )}
+              <button
+                onClick={loadElevation}
+                disabled={eleStatus === "loading"}
+                style={{
+                  marginTop: 2, background: eleStatus === "loading" ? "#1e2940" : "#ff8a3d",
+                  border: "none", borderRadius: 10, padding: "8px 14px",
+                  cursor: eleStatus === "loading" ? "default" : "pointer",
+                  fontSize: 12, fontWeight: 800, color: eleStatus === "loading" ? "#8a99b8" : "#0d1320",
+                }}
+              >
+                {eleStatus === "loading" ? "Sťahujem výšky…" : "Dopočítať výšky online"}
+              </button>
             </div>
           )}
         </div>

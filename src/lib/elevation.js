@@ -11,14 +11,17 @@
 
 const API = "https://api.open-meteo.com/v1/elevation";
 const CHUNK = 100; // max. počet bodov na jednu požiadavku
+const TIMEOUT_MS = 8000; // tvrdý limit na požiadavku – aby fetch nikdy nevisel
 
 /**
  * Stiahne výšky [m] pre dané body. Poradie výstupu zodpovedá vstupu.
+ * Každá dávka má časový limit (AbortController), takže pri blokovanej/pomalej
+ * sieti volanie spadne s chybou namiesto nekonečného čakania.
  * @param {Array<{lat:number, lon:number}>} points
- * @param {{signal?: AbortSignal}} [opts]
+ * @param {{signal?: AbortSignal, timeoutMs?: number}} [opts]
  * @returns {Promise<number[]>}
  */
-export async function fetchElevations(points, { signal } = {}) {
+export async function fetchElevations(points, { signal, timeoutMs = TIMEOUT_MS } = {}) {
   if (!Array.isArray(points) || points.length === 0) return [];
   const out = new Array(points.length);
 
@@ -26,9 +29,26 @@ export async function fetchElevations(points, { signal } = {}) {
     const chunk = points.slice(i, i + CHUNK);
     const lat = chunk.map((p) => p.lat.toFixed(6)).join(",");
     const lon = chunk.map((p) => p.lon.toFixed(6)).join(",");
-    const res = await fetch(`${API}?latitude=${lat}&longitude=${lon}`, { signal });
-    if (!res.ok) throw new Error(`Elevation API zlyhalo (HTTP ${res.status})`);
-    const data = await res.json();
+
+    const ctrl = new AbortController();
+    const onAbort = () => ctrl.abort();
+    if (signal) signal.addEventListener("abort", onAbort);
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    let data;
+    try {
+      const res = await fetch(`${API}?latitude=${lat}&longitude=${lon}`, { signal: ctrl.signal });
+      if (!res.ok) throw new Error(`Elevation API zlyhalo (HTTP ${res.status})`);
+      data = await res.json();
+    } catch (e) {
+      if (ctrl.signal.aborted && !(signal && signal.aborted)) {
+        throw new Error("Sťahovanie výšok trvalo príliš dlho (timeout)");
+      }
+      throw e;
+    } finally {
+      clearTimeout(timer);
+      if (signal) signal.removeEventListener("abort", onAbort);
+    }
+
     const els = data?.elevation;
     if (!Array.isArray(els) || els.length !== chunk.length) {
       throw new Error("Neočakávaná odpoveď z elevation API");

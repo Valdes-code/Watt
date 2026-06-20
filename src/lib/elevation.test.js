@@ -38,6 +38,16 @@ describe("fetchElevations", () => {
     await expect(fetchElevations(pts(2))).rejects.toThrow(/503/);
   });
 
+  it("spadne na timeout, keď sieť visí (nezasekne sa)", async () => {
+    // fetch nikdy neodpovie, len rešpektuje abort signal
+    vi.stubGlobal("fetch", vi.fn((url, { signal }) =>
+      new Promise((_, reject) => {
+        signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+      })
+    ));
+    await expect(fetchElevations(pts(2), { timeoutMs: 20 })).rejects.toThrow(/timeout/i);
+  });
+
   it("vyhodí chybu pri nesúlade dĺžky odpovede", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ elevation: [1] }) })));
     await expect(fetchElevations(pts(2))).rejects.toThrow(/odpoveď/i);
