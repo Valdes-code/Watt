@@ -123,12 +123,12 @@ export default function RideAnalysis({ imported, onClearImport }) {
     return buildRide(120).map((p) => ({ ...p, latlng: geo(p) }));
   }, [imported]);
 
-  const [mode, setMode] = useState("power"); // 'power' | 'zone'
+  const [mode, setMode] = useState("power"); // 'power' | 'zone' – farbenie mapy
+  const [metric, setMetric] = useState("power"); // 'power' | 'ele' – veľký graf pozdĺž trasy
   const [idx, setIdx] = useState(0);
   const [fetchedEle, setFetchedEle] = useState(null); // výšky dotiahnuté online
   const [eleStatus, setEleStatus] = useState("idle"); // idle | loading | error
   const graphRef = useRef();
-  const eleRef = useRef();
 
   // Pri zmene zdroja (import ↔ demo) skoč na stred trasy a zahoď dotiahnuté výšky.
   useEffect(() => {
@@ -200,7 +200,6 @@ export default function RideAnalysis({ imported, onClearImport }) {
     setIdx(idxAtRel((e.clientX - rect.left) / rect.width));
   };
   const handleGraph = (e) => scrub(e, graphRef);
-  const handleEle = (e) => scrub(e, eleRef);
 
   // Dotiahne výšky terénu online (open-meteo) pre trasy bez <ele> v GPX.
   const loadElevation = async () => {
@@ -343,53 +342,30 @@ export default function RideAnalysis({ imported, onClearImport }) {
           </div>
         </div>
 
-        {/* ELEVATION PROFILE (scrub – synced s mapou aj grafom) */}
+        {/* GRAPH (scrub) – prepínateľný: Výkon / Prevýšenie pozdĺž trasy */}
         <div style={{ background: "#101725", border: "1px solid #1e2940", borderRadius: 16, padding: 14, marginBottom: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#8a99b8", letterSpacing: 0.5 }}>PROFIL PREVÝŠENIA</span>
-            {hasElevation && <span style={{ fontSize: 11, color: "#ff8a3d", fontWeight: 700 }}>{Math.round(eles[cIdx])} m</span>}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#8a99b8", letterSpacing: 0.5 }}>
+              {metric === "ele" ? "PREVÝŠENIE POZDĹŽ TRASY" : "VÝKON POZDĹŽ TRASY"}
+            </span>
+            <div style={{ display: "flex", gap: 6 }}>
+              {[["power", "Výkon"], ["ele", "Prevýšenie"]].map(([k, t]) => {
+                const on = metric === k;
+                return (
+                  <button key={k} onClick={() => setMetric(k)} style={{
+                    padding: "4px 10px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 700,
+                    border: on ? "1px solid #ffd54a" : "1px solid #1e2940",
+                    background: on ? "rgba(255,213,74,0.12)" : "#141c2e",
+                    color: on ? "#ffd54a" : "#8a99b8",
+                  }}>{t}</button>
+                );
+              })}
+            </div>
           </div>
-          {hasElevation ? (
-            <>
-              <div
-                ref={eleRef}
-                onMouseDown={handleEle}
-                onMouseMove={(e) => e.buttons === 1 && handleEle(e)}
-                style={{ position: "relative", height: 80, cursor: "pointer" }}
-              >
-                <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: "block", overflow: "visible" }}>
-                  <defs>
-                    <linearGradient id="eleFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#ff8a3d" stopOpacity="0.35" />
-                      <stop offset="100%" stopColor="#ff8a3d" stopOpacity="0.02" />
-                    </linearGradient>
-                  </defs>
-                  <path d={eleArea} fill="url(#eleFill)" />
-                  <path d={eleLine} fill="none" stroke="#ff8a3d" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-                </svg>
-                {/* zvislá poloha aktuálneho bodu (podľa vzdialenosti) */}
-                <div style={{
-                  position: "absolute", top: 0, bottom: 0,
-                  left: `${xPct(cIdx)}%`,
-                  width: 2, background: "#fff", pointerEvents: "none",
-                }} />
-                {/* bod na krivke */}
-                <div style={{
-                  position: "absolute",
-                  left: `${xPct(cIdx)}%`,
-                  top: `${eY(eles[cIdx])}%`,
-                  width: 9, height: 9, borderRadius: "50%", background: "#fff",
-                  border: "2px solid #ff8a3d", transform: "translate(-50%,-50%)", pointerEvents: "none",
-                }} />
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 10, color: "#6b7a99" }}>
-                <span>{Math.round(eMin)} m</span>
-                <span>↑ {eleGain} m</span>
-                <span>{Math.round(eMax)} m</span>
-              </div>
-            </>
-          ) : (
-            <div style={{ minHeight: 80, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 6, padding: "6px 0" }}>
+
+          {metric === "ele" && !hasElevation ? (
+            /* Prevýšenie bez dát – ponuka dopočtu online */
+            <div style={{ minHeight: 90, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 6, padding: "6px 0" }}>
               <Mountain size={20} color="#6b7a99" style={{ opacity: 0.6 }} />
               <span style={{ fontSize: 12, color: "#8a99b8", fontWeight: 600 }}>Trasa neobsahuje výškové dáta</span>
               <span style={{ fontSize: 10.5, color: "#6b7a99", lineHeight: 1.4, maxWidth: 300 }}>
@@ -400,62 +376,82 @@ export default function RideAnalysis({ imported, onClearImport }) {
                   Výšky sa nepodarilo stiahnuť (sieť/limit). Skús znova.
                 </span>
               )}
-              <button
-                onClick={loadElevation}
-                disabled={eleStatus === "loading"}
-                style={{
-                  marginTop: 2, background: eleStatus === "loading" ? "#1e2940" : "#ff8a3d",
-                  border: "none", borderRadius: 10, padding: "8px 14px",
-                  cursor: eleStatus === "loading" ? "default" : "pointer",
-                  fontSize: 12, fontWeight: 800, color: eleStatus === "loading" ? "#8a99b8" : "#0d1320",
-                }}
-              >
+              <button onClick={loadElevation} disabled={eleStatus === "loading"} style={{
+                marginTop: 2, background: eleStatus === "loading" ? "#1e2940" : "#ff8a3d",
+                border: "none", borderRadius: 10, padding: "8px 14px",
+                cursor: eleStatus === "loading" ? "default" : "pointer",
+                fontSize: 12, fontWeight: 800, color: eleStatus === "loading" ? "#8a99b8" : "#0d1320",
+              }}>
                 {eleStatus === "loading" ? "Sťahujem výšky…" : "Dopočítať výšky online"}
               </button>
             </div>
+          ) : (
+            <>
+              <div
+                ref={graphRef}
+                onMouseDown={handleGraph}
+                onMouseMove={(e) => e.buttons === 1 && handleGraph(e)}
+                style={{ position: "relative", height: 90, cursor: "pointer" }}
+              >
+                {metric === "ele" ? (
+                  /* Profil prevýšenia celej trasy (plocha + krivka) */
+                  <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: "block", overflow: "visible" }}>
+                    <defs>
+                      <linearGradient id="eleFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#ff8a3d" stopOpacity="0.35" />
+                        <stop offset="100%" stopColor="#ff8a3d" stopOpacity="0.02" />
+                      </linearGradient>
+                    </defs>
+                    <path d={eleArea} fill="url(#eleFill)" />
+                    <path d={eleLine} fill="none" stroke="#ff8a3d" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+                  </svg>
+                ) : (
+                  /* Stĺpce výkonu so šírkou podľa vzdialenosti úseku */
+                  <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: "block" }}>
+                    {ride.slice(0, -1).map((p, i) => {
+                      const h = Math.max(4, ((p.power - minP) / (maxP - minP || 1)) * 100);
+                      const x = xPct(i);
+                      return (
+                        <rect key={i}
+                          x={x} y={100 - h} width={Math.max(0.01, xPct(i + 1) - x)} height={h}
+                          fill={i === cIdx ? "#fff" : colorFor(p)}
+                          opacity={i === cIdx ? 1 : 0.85}
+                        />
+                      );
+                    })}
+                  </svg>
+                )}
+                {/* position line (podľa vzdialenosti) */}
+                <div style={{
+                  position: "absolute", top: 0, bottom: 0,
+                  left: `${xPct(cIdx)}%`,
+                  width: 2, background: "#fff", pointerEvents: "none",
+                }} />
+                {/* bod na výškovej krivke */}
+                {metric === "ele" && (
+                  <div style={{
+                    position: "absolute", left: `${xPct(cIdx)}%`, top: `${eY(eles[cIdx])}%`,
+                    width: 9, height: 9, borderRadius: "50%", background: "#fff",
+                    border: "2px solid #ff8a3d", transform: "translate(-50%,-50%)", pointerEvents: "none",
+                  }} />
+                )}
+              </div>
+              {/* spodný riadok: pri výkone os v km, pri prevýšení rozsah + stúpanie */}
+              {metric === "ele" ? (
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 10, color: "#6b7a99" }}>
+                  <span>{Math.round(eMin)} m</span>
+                  <span style={{ color: "#ff8a3d", fontWeight: 700 }}>{Math.round(eles[cIdx])} m · ↑ {eleGain} m</span>
+                  <span>{Math.round(eMax)} m</span>
+                </div>
+              ) : (
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "#6b7a99" }}>
+                  <span>0 km</span>
+                  <span>{(dist0 + distSpan / 2).toFixed(1)} km</span>
+                  <span>{(dist0 + distSpan).toFixed(1)} km</span>
+                </div>
+              )}
+            </>
           )}
-        </div>
-
-        {/* GRAPH (scrub) */}
-        <div style={{ background: "#101725", border: "1px solid #1e2940", borderRadius: 16, padding: 14, marginBottom: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#8a99b8", letterSpacing: 0.5 }}>VÝKON POZDĹŽ TRASY</span>
-            <span style={{ fontSize: 11, color: "#6b7a99" }}>klikni alebo potiahni ↓</span>
-          </div>
-          <div
-            ref={graphRef}
-            onMouseDown={handleGraph}
-            onMouseMove={(e) => e.buttons === 1 && handleGraph(e)}
-            style={{ position: "relative", height: 90, cursor: "pointer" }}
-          >
-            {/* stĺpce výkonu so šírkou podľa vzdialenosti úseku (os v km) */}
-            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: "block" }}>
-              {ride.slice(0, -1).map((p, i) => {
-                const h = Math.max(4, ((p.power - minP) / (maxP - minP || 1)) * 100);
-                const x = xPct(i);
-                return (
-                  <rect
-                    key={i}
-                    x={x} y={100 - h} width={Math.max(0.01, xPct(i + 1) - x)} height={h}
-                    fill={i === cIdx ? "#fff" : colorFor(p)}
-                    opacity={i === cIdx ? 1 : 0.85}
-                  />
-                );
-              })}
-            </svg>
-            {/* position line (podľa vzdialenosti) */}
-            <div style={{
-              position: "absolute", top: 0, bottom: 0,
-              left: `${xPct(cIdx)}%`,
-              width: 2, background: "#fff", pointerEvents: "none",
-            }} />
-          </div>
-          {/* os vzdialenosti (km) */}
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "#6b7a99" }}>
-            <span>0 km</span>
-            <span>{(dist0 + distSpan / 2).toFixed(1)} km</span>
-            <span>{(dist0 + distSpan).toFixed(1)} km</span>
-          </div>
           {/* slider for fine control */}
           <input
             type="range" min={0} max={ride.length - 1} value={cIdx}
