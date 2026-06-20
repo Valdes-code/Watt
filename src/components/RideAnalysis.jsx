@@ -225,6 +225,11 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const maxPower = imported ? imported.maxPower : maxP;
   const totalDist = imported ? imported.distanceKm : ride[ride.length - 1].dist;
 
+  // Plánovaná (ešte neodjazdená) trasa: výkon je len odhad, tak ho v detaile
+  // skryjeme a namiesto neho ukážeme vzdialenosť z aktuálneho bodu do cieľa.
+  const planned = !!imported?.planned;
+  const distToFinish = Math.max(0, totalDist - cur.dist);
+
   // Scrub na grafe/profile → najbližší bod podľa vzdialenosti (rovnaká os km).
   const scrub = (e, ref) => {
     const rect = ref.current.getBoundingClientRect();
@@ -365,12 +370,23 @@ export default function RideAnalysis({ imported, onClearImport }) {
             <div style={{ fontSize: 10, color: "#6b7a99", fontWeight: 600 }}>
               {cur.dist.toFixed(1)} km
             </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: colorFor(cur), lineHeight: 1.1 }}>
-              {cur.power}<span style={{ fontSize: 13, marginLeft: 2 }}>W</span>
-            </div>
-            <div style={{ fontSize: 10.5, color: cur.zone ? cur.zone.color : "#6b7a99", fontWeight: 600 }}>
-              {cur.zone ? cur.zone.label : "tep neznámy"}
-            </div>
+            {planned ? (
+              <>
+                <div style={{ fontSize: 26, fontWeight: 800, color: "#7fb0ff", lineHeight: 1.1 }}>
+                  {distToFinish.toFixed(1)}<span style={{ fontSize: 13, marginLeft: 2 }}>km</span>
+                </div>
+                <div style={{ fontSize: 10.5, color: "#6b7a99", fontWeight: 600 }}>do cieľa</div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 26, fontWeight: 800, color: colorFor(cur), lineHeight: 1.1 }}>
+                  {cur.power}<span style={{ fontSize: 13, marginLeft: 2 }}>W</span>
+                </div>
+                <div style={{ fontSize: 10.5, color: cur.zone ? cur.zone.color : "#6b7a99", fontWeight: 600 }}>
+                  {cur.zone ? cur.zone.label : "tep neznámy"}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -496,7 +512,11 @@ export default function RideAnalysis({ imported, onClearImport }) {
 
         {/* DETAIL at current point */}
         <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-          <Stat icon={Zap} label="Výkon" value={cur.power} unit="W" color={colorFor(cur)} />
+          {planned ? (
+            <Stat icon={MapPin} label="Do cieľa" value={distToFinish.toFixed(1)} unit="km" color="#7fb0ff" />
+          ) : (
+            <Stat icon={Zap} label="Výkon" value={cur.power} unit="W" color={colorFor(cur)} />
+          )}
           <Stat icon={Heart} label="Tep" value={cur.hr != null ? cur.hr : "—"} unit={cur.hr != null ? "bpm" : ""} color="#ff5470" />
         </div>
         <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
