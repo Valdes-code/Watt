@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Polyline, CircleMarker, useMapEvents, useMap }
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
-  Zap, Heart, Gauge, TrendingUp, MapPin, Cpu, ChevronLeft, ChevronRight, X,
+  Zap, Heart, Gauge, TrendingUp, MapPin, Cpu, ChevronLeft, ChevronRight, X, Mountain,
 } from "lucide-react";
 // Zdieľaný fyzikálny engine (pozri src/lib/physics.js)
 import { airDensity, estimateCdA, calcPower, physicsTrust, fuse, hrZone } from "../lib/physics.js";
@@ -170,6 +170,8 @@ export default function RideAnalysis({ imported, onClearImport }) {
     });
   }, [ride]);
   const eMin = Math.min(...eles), eMax = Math.max(...eles);
+  // Trasa bez výškových dát (alebo úplne rovná) → nemá zmysel kresliť profil.
+  const hasElevation = eMax - eMin >= 1;
   // Celkové stúpanie: pri importe presne z analyzeRide, inak z profilu.
   const eleGain = imported
     ? imported.elevationGain
@@ -321,44 +323,56 @@ export default function RideAnalysis({ imported, onClearImport }) {
         <div style={{ background: "#101725", border: "1px solid #1e2940", borderRadius: 16, padding: 14, marginBottom: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#8a99b8", letterSpacing: 0.5 }}>PROFIL PREVÝŠENIA</span>
-            <span style={{ fontSize: 11, color: "#ff8a3d", fontWeight: 700 }}>{Math.round(eles[cIdx])} m</span>
+            {hasElevation && <span style={{ fontSize: 11, color: "#ff8a3d", fontWeight: 700 }}>{Math.round(eles[cIdx])} m</span>}
           </div>
-          <div
-            ref={eleRef}
-            onMouseDown={handleEle}
-            onMouseMove={(e) => e.buttons === 1 && handleEle(e)}
-            style={{ position: "relative", height: 80, cursor: "pointer" }}
-          >
-            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: "block", overflow: "visible" }}>
-              <defs>
-                <linearGradient id="eleFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#ff8a3d" stopOpacity="0.35" />
-                  <stop offset="100%" stopColor="#ff8a3d" stopOpacity="0.02" />
-                </linearGradient>
-              </defs>
-              <path d={eleArea} fill="url(#eleFill)" />
-              <path d={eleLine} fill="none" stroke="#ff8a3d" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-            </svg>
-            {/* zvislá poloha aktuálneho bodu (podľa vzdialenosti) */}
-            <div style={{
-              position: "absolute", top: 0, bottom: 0,
-              left: `${xPct(cIdx)}%`,
-              width: 2, background: "#fff", pointerEvents: "none",
-            }} />
-            {/* bod na krivke */}
-            <div style={{
-              position: "absolute",
-              left: `${xPct(cIdx)}%`,
-              top: `${eY(eles[cIdx])}%`,
-              width: 9, height: 9, borderRadius: "50%", background: "#fff",
-              border: "2px solid #ff8a3d", transform: "translate(-50%,-50%)", pointerEvents: "none",
-            }} />
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 10, color: "#6b7a99" }}>
-            <span>{Math.round(eMin)} m</span>
-            <span>↑ {eleGain} m</span>
-            <span>{Math.round(eMax)} m</span>
-          </div>
+          {hasElevation ? (
+            <>
+              <div
+                ref={eleRef}
+                onMouseDown={handleEle}
+                onMouseMove={(e) => e.buttons === 1 && handleEle(e)}
+                style={{ position: "relative", height: 80, cursor: "pointer" }}
+              >
+                <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: "block", overflow: "visible" }}>
+                  <defs>
+                    <linearGradient id="eleFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#ff8a3d" stopOpacity="0.35" />
+                      <stop offset="100%" stopColor="#ff8a3d" stopOpacity="0.02" />
+                    </linearGradient>
+                  </defs>
+                  <path d={eleArea} fill="url(#eleFill)" />
+                  <path d={eleLine} fill="none" stroke="#ff8a3d" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+                </svg>
+                {/* zvislá poloha aktuálneho bodu (podľa vzdialenosti) */}
+                <div style={{
+                  position: "absolute", top: 0, bottom: 0,
+                  left: `${xPct(cIdx)}%`,
+                  width: 2, background: "#fff", pointerEvents: "none",
+                }} />
+                {/* bod na krivke */}
+                <div style={{
+                  position: "absolute",
+                  left: `${xPct(cIdx)}%`,
+                  top: `${eY(eles[cIdx])}%`,
+                  width: 9, height: 9, borderRadius: "50%", background: "#fff",
+                  border: "2px solid #ff8a3d", transform: "translate(-50%,-50%)", pointerEvents: "none",
+                }} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 10, color: "#6b7a99" }}>
+                <span>{Math.round(eMin)} m</span>
+                <span>↑ {eleGain} m</span>
+                <span>{Math.round(eMax)} m</span>
+              </div>
+            </>
+          ) : (
+            <div style={{ height: 80, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 4 }}>
+              <Mountain size={20} color="#6b7a99" style={{ opacity: 0.6 }} />
+              <span style={{ fontSize: 12, color: "#8a99b8", fontWeight: 600 }}>Trasa neobsahuje výškové dáta</span>
+              <span style={{ fontSize: 10.5, color: "#6b7a99", lineHeight: 1.4 }}>
+                Tvoje GPX nemá uložené výšky (&lt;ele&gt;). Profil sa preto nedá vykresliť.
+              </span>
+            </div>
+          )}
         </div>
 
         {/* GRAPH (scrub) */}
