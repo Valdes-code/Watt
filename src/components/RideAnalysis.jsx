@@ -143,6 +143,22 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const latlngs = useMemo(() => ride.map((p) => p.latlng), [ride]);
   const bounds = useMemo(() => L.latLngBounds(latlngs).pad(0.1), [latlngs]);
 
+  // Os X grafov je škálovaná podľa prejdenej vzdialenosti (km), nie podľa
+  // poradia bodov – takže rovnomerné delenie na osi zodpovedá reálnym metrom.
+  const dist0 = ride[0].dist;
+  const distSpan = (ride[ride.length - 1].dist - dist0) || 1;
+  const xPct = (i) => ((ride[i].dist - dist0) / distSpan) * 100;
+  // Najbližší bod trasy k relatívnej polohe (0..1) na osi vzdialenosti.
+  const idxAtRel = (rel) => {
+    const target = dist0 + Math.max(0, Math.min(1, rel)) * distSpan;
+    let best = 0, bd = Infinity;
+    for (let i = 0; i < ride.length; i++) {
+      const d = Math.abs(ride[i].dist - target);
+      if (d < bd) { bd = d; best = i; }
+    }
+    return best;
+  };
+
   // Profil prevýšenia: použijeme reálne výšky z GPX, inak ich dopočítame
   // integráciou sklonu po vzdialenosti (funguje aj pre demo trasu).
   const eles = useMemo(() => {
@@ -158,10 +174,9 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const eleGain = imported
     ? imported.elevationGain
     : Math.round(eles.reduce((s, v, i) => s + Math.max(0, v - eles[i - 1] || 0), 0));
-  // SVG dráha profilu (viewBox 0..100, 4 % okraj hore/dole).
-  const eX = (i) => (i / (ride.length - 1)) * 100;
+  // SVG dráha profilu (viewBox 0..100, x podľa vzdialenosti, 4 % okraj hore/dole).
   const eY = (v) => 96 - ((v - eMin) / (eMax - eMin || 1)) * 92;
-  const eleLine = eles.map((v, i) => `${i ? "L" : "M"} ${eX(i).toFixed(2)} ${eY(v).toFixed(2)}`).join(" ");
+  const eleLine = eles.map((v, i) => `${i ? "L" : "M"} ${xPct(i).toFixed(2)} ${eY(v).toFixed(2)}`).join(" ");
   const eleArea = `${eleLine} L 100 100 L 0 100 Z`;
 
   // Súhrn: pri importe z analyzeRide(), inak dopočítaný z demo trasy.
@@ -169,12 +184,10 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const maxPower = imported ? imported.maxPower : maxP;
   const totalDist = imported ? imported.distanceKm : ride[ride.length - 1].dist;
 
-  // Scrub na grafe/profile → nastaví rovnaký bod ako na mape a slideri.
+  // Scrub na grafe/profile → najbližší bod podľa vzdialenosti (rovnaká os km).
   const scrub = (e, ref) => {
     const rect = ref.current.getBoundingClientRect();
-    const rel = (e.clientX - rect.left) / rect.width;
-    const newIdx = Math.max(0, Math.min(ride.length - 1, Math.round(rel * (ride.length - 1))));
-    setIdx(newIdx);
+    setIdx(idxAtRel((e.clientX - rect.left) / rect.width));
   };
   const handleGraph = (e) => scrub(e, graphRef);
   const handleEle = (e) => scrub(e, eleRef);
@@ -326,16 +339,16 @@ export default function RideAnalysis({ imported, onClearImport }) {
               <path d={eleArea} fill="url(#eleFill)" />
               <path d={eleLine} fill="none" stroke="#ff8a3d" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
             </svg>
-            {/* zvislá poloha aktuálneho bodu */}
+            {/* zvislá poloha aktuálneho bodu (podľa vzdialenosti) */}
             <div style={{
               position: "absolute", top: 0, bottom: 0,
-              left: `${(cIdx / (ride.length - 1)) * 100}%`,
+              left: `${xPct(cIdx)}%`,
               width: 2, background: "#fff", pointerEvents: "none",
             }} />
             {/* bod na krivke */}
             <div style={{
               position: "absolute",
-              left: `${(cIdx / (ride.length - 1)) * 100}%`,
+              left: `${xPct(cIdx)}%`,
               top: `${eY(eles[cIdx])}%`,
               width: 9, height: 9, borderRadius: "50%", background: "#fff",
               border: "2px solid #ff8a3d", transform: "translate(-50%,-50%)", pointerEvents: "none",
@@ -358,23 +371,35 @@ export default function RideAnalysis({ imported, onClearImport }) {
             ref={graphRef}
             onMouseDown={handleGraph}
             onMouseMove={(e) => e.buttons === 1 && handleGraph(e)}
-            style={{ position: "relative", height: 90, cursor: "pointer", display: "flex", alignItems: "flex-end", gap: 1 }}
+            style={{ position: "relative", height: 90, cursor: "pointer" }}
           >
-            {ride.map((p, i) => (
-              <div key={i} style={{
-                flex: 1,
-                height: `${Math.max(4, ((p.power - minP) / (maxP - minP || 1)) * 100)}%`,
-                background: i === cIdx ? "#fff" : colorFor(p),
-                opacity: i === cIdx ? 1 : 0.85,
-                borderRadius: 1,
-              }} />
-            ))}
-            {/* position line */}
+            {/* stĺpce výkonu so šírkou podľa vzdialenosti úseku (os v km) */}
+            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: "block" }}>
+              {ride.slice(0, -1).map((p, i) => {
+                const h = Math.max(4, ((p.power - minP) / (maxP - minP || 1)) * 100);
+                const x = xPct(i);
+                return (
+                  <rect
+                    key={i}
+                    x={x} y={100 - h} width={Math.max(0.01, xPct(i + 1) - x)} height={h}
+                    fill={i === cIdx ? "#fff" : colorFor(p)}
+                    opacity={i === cIdx ? 1 : 0.85}
+                  />
+                );
+              })}
+            </svg>
+            {/* position line (podľa vzdialenosti) */}
             <div style={{
               position: "absolute", top: 0, bottom: 0,
-              left: `${(cIdx / (ride.length - 1)) * 100}%`,
+              left: `${xPct(cIdx)}%`,
               width: 2, background: "#fff", pointerEvents: "none",
             }} />
+          </div>
+          {/* os vzdialenosti (km) */}
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "#6b7a99" }}>
+            <span>0 km</span>
+            <span>{(dist0 + distSpan / 2).toFixed(1)} km</span>
+            <span>{(dist0 + distSpan).toFixed(1)} km</span>
           </div>
           {/* slider for fine control */}
           <input
