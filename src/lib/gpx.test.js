@@ -278,4 +278,112 @@ ${body}
     expect(ride.segments[0].speed).toBeLessThan(ride.segments[1].speed);
     expect(ride.durationSec).toBeGreaterThan(0);
   });
+
+  it("planSpeedKmh ladí odhad: vyššia rýchlosť → vyšší výkon a kratšia ETA", () => {
+    const { points } = parseGpx(
+      route(`
+        <rtept lat="48.0" lon="17.0"><ele>200</ele></rtept>
+        <rtept lat="48.05" lon="17.0"><ele>200</ele></rtept>`)
+    );
+    const pomaly = analyzeRide(points, undefined, { plan: true, planSpeedKmh: 18 });
+    const rychlo = analyzeRide(points, undefined, { plan: true, planSpeedKmh: 30 });
+    expect(rychlo.segments[0].speed).toBeGreaterThan(pomaly.segments[0].speed);
+    expect(rychlo.avgPower).toBeGreaterThan(pomaly.avgPower);
+    expect(rychlo.durationSec).toBeLessThan(pomaly.durationSec);
+  });
+
+  it("odhadovaná rýchlosť do prudkého kopca neklesne pod 6 km/h", () => {
+    const { points } = parseGpx(
+      route(`
+        <rtept lat="48.0" lon="17.0"><ele>200</ele></rtept>
+        <rtept lat="48.002" lon="17.0"><ele>260</ele></rtept>`)
+    );
+    // ~222 m vodorovne, +60 m → ~27 % sklon (extrém)
+    const ride = analyzeRide(points, undefined, { plan: true, planSpeedKmh: 22 });
+    expect(ride.segments[0].slope).toBeGreaterThan(20);
+    expect(ride.segments[0].speed).toBeGreaterThanOrEqual(6);
+  });
+
+  it("plánovaná trasa bez výšky: rovinkový odhad, prevýšenie 0", () => {
+    const { points } = parseGpx(
+      route(`
+        <rtept lat="48.0" lon="17.0"></rtept>
+        <rtept lat="48.03" lon="17.0"></rtept>`)
+    );
+    const ride = analyzeRide(points, undefined, { plan: true, planSpeedKmh: 24 });
+    expect(ride.elevationGain).toBe(0);
+    expect(ride.segments[0].slope).toBe(0);
+    expect(ride.segments[0].speed).toBeCloseTo(24, 0); // rovinka = základná rýchlosť
+  });
+
+  it("importGpx zapne odhad aj pre <trkpt> bez časových značiek (GPS log bez času)", () => {
+    const ride = importGpx(gpx(`
+      <trkpt lat="48.0" lon="17.0"><ele>200</ele></trkpt>
+      <trkpt lat="48.02" lon="17.0"><ele>260</ele></trkpt>`));
+    expect(ride.planned).toBe(true);
+    expect(ride.segments[0].source).toBe("odhad");
+    expect(ride.avgPower).toBeGreaterThan(0);
+  });
+});
+
+describe("okrajové prípady parsera", () => {
+  it("pri prítomnosti <trkpt> ignoruje <rte> a trasa nie je plánovaná", () => {
+    const { points, planned } = parseGpx(`<?xml version="1.0"?>
+      <gpx>
+        <rte>
+          <rtept lat="40.0" lon="10.0"><ele>5</ele></rtept>
+          <rtept lat="40.1" lon="10.0"><ele>5</ele></rtept>
+        </rte>
+        <trk><trkseg>
+          <trkpt lat="48.0" lon="17.0"><time>2026-06-14T07:00:00Z</time></trkpt>
+          <trkpt lat="48.01" lon="17.0"><time>2026-06-14T07:02:00Z</time></trkpt>
+          <trkpt lat="48.02" lon="17.0"><time>2026-06-14T07:04:00Z</time></trkpt>
+        </trkseg></trk>
+      </gpx>`);
+    expect(points).toHaveLength(3); // z <trkpt>, nie z <rtept>
+    expect(points[0].lat).toBe(48.0);
+    expect(planned).toBe(false);
+  });
+
+  it("rozpozná tep cez gpxtpx:hr, ns3:hr aj <heartrate>", () => {
+    const garmin = parseGpx(gpx(`
+      <trkpt lat="48.0" lon="17.0"><extensions><gpxtpx:hr>142</gpxtpx:hr></extensions></trkpt>
+      <trkpt lat="48.01" lon="17.0"><extensions><ns3:hr>150</ns3:hr></extensions></trkpt>`));
+    expect(garmin.points[0].hr).toBe(142);
+    expect(garmin.points[1].hr).toBe(150);
+
+    const plain = parseGpx(gpx(`
+      <trkpt lat="48.0" lon="17.0"><heartrate>120</heartrate></trkpt>
+      <trkpt lat="48.01" lon="17.0"><hr>125</hr></trkpt>`));
+    expect(plain.points[0].hr).toBe(120);
+    expect(plain.points[1].hr).toBe(125);
+  });
+
+  it("prázdne <extensions> nechá výkon aj tep null", () => {
+    const { points, hasPower } = parseGpx(gpx(`
+      <trkpt lat="48.0" lon="17.0"><extensions></extensions></trkpt>
+      <trkpt lat="48.01" lon="17.0"></trkpt>`));
+    expect(hasPower).toBe(false);
+    expect(points[0].power).toBeNull();
+    expect(points[0].hr).toBeNull();
+  });
+
+  it("tep z GPX prebublá do track[].hr a zón (analyzeRide)", () => {
+    const { points } = parseGpx(gpx(`
+      <trkpt lat="48.0" lon="17.0"><time>2026-06-14T07:00:00Z</time><extensions><gpxtpx:hr>150</gpxtpx:hr></extensions></trkpt>
+      <trkpt lat="48.02" lon="17.0"><time>2026-06-14T07:03:00Z</time><extensions><gpxtpx:hr>160</gpxtpx:hr></extensions></trkpt>`));
+    const ride = analyzeRide(points);
+    expect(ride.track[0].distKm).toBe(0); // prvý bod je na štarte
+    expect(ride.track[1].hr).toBe(160);
+  });
+
+  it("prevýšenie ignoruje úseky, kde chýba výška na jednom z bodov", () => {
+    const { points } = parseGpx(gpx(`
+      <trkpt lat="48.0" lon="17.0"><ele>200</ele><time>2026-06-14T07:00:00Z</time></trkpt>
+      <trkpt lat="48.01" lon="17.0"><time>2026-06-14T07:02:00Z</time></trkpt>
+      <trkpt lat="48.02" lon="17.0"><ele>300</ele><time>2026-06-14T07:04:00Z</time></trkpt>`));
+    // ani jeden úsek nemá výšku na oboch koncoch → žiadne prevýšenie
+    const ride = analyzeRide(points);
+    expect(ride.elevationGain).toBe(0);
+  });
 });
