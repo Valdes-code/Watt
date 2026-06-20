@@ -1,0 +1,30 @@
+/* Globálne štýly CycloWatt */
+
+/* Zvislý posuvník celej appky – zladený s tmavým pozadím / transparentný,
+   nech neruší. Jemne viditeľný len pri hoveri, aby sa dal chytiť. */
+html {
+  scrollbar-width: thin;                 /* Firefox */
+  scrollbar-color: transparent transparent;
+}
+html:hover {
+  scrollbar-color: rgba(40, 57, 80, 0.6) transparent;
+}
+
+/* WebKit / Blink (Chrome, Edge, Safari) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 8px;
+}
+*:hover::-webkit-scrollbar-thumb {
+  background: rgba(40, 57, 80, 0.6);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}

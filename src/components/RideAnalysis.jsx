@@ -88,6 +88,17 @@ function FollowMarker({ center }) {
   return null;
 }
 
+// Sleduje výrez mapy pri používateľskom priblížení/posune (zoom, drag).
+// Zámerne NEpočúva 'moveend' – ten spúšťa aj programový panTo z FollowMarker,
+// čo by spôsobilo spätnú slučku. 'dragend'/'zoomend' reagujú len na používateľa.
+function MapViewport({ onChange }) {
+  const map = useMapEvents({
+    zoomend() { onChange(map.getBounds()); },
+    dragend() { onChange(map.getBounds()); },
+  });
+  return null;
+}
+
 // Klik na mapu → nájde najbližší bod trasy a vyberie ho.
 function MapClick({ latlngs, onPick }) {
   useMapEvents({
@@ -128,13 +139,16 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const [idx, setIdx] = useState(0);
   const [fetchedEle, setFetchedEle] = useState(null); // výšky dotiahnuté online
   const [eleStatus, setEleStatus] = useState("idle"); // idle | loading | error
+  const [mapBounds, setMapBounds] = useState(null); // výrez mapy (pri priblížení)
   const graphRef = useRef();
 
-  // Pri zmene zdroja (import ↔ demo) skoč na stred trasy a zahoď dotiahnuté výšky.
+  // Pri zmene zdroja (import ↔ demo) skoč na stred trasy, zahoď dotiahnuté výšky
+  // aj výrez mapy (graf zobrazí celú trasu).
   useEffect(() => {
     setIdx(Math.floor(ride.length / 2));
     setFetchedEle(null);
     setEleStatus("idle");
+    setMapBounds(null);
   }, [ride]);
 
   const powers = ride.map((p) => p.power);
@@ -150,21 +164,22 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const latlngs = useMemo(() => ride.map((p) => p.latlng), [ride]);
   const bounds = useMemo(() => L.latLngBounds(latlngs).pad(0.1), [latlngs]);
 
-  // Os X grafov je škálovaná podľa prejdenej vzdialenosti (km), nie podľa
-  // poradia bodov – takže rovnomerné delenie na osi zodpovedá reálnym metrom.
-  const dist0 = ride[0].dist;
-  const distSpan = (ride[ride.length - 1].dist - dist0) || 1;
-  const xPct = (i) => ((ride[i].dist - dist0) / distSpan) * 100;
-  // Najbližší bod trasy k relatívnej polohe (0..1) na osi vzdialenosti.
-  const idxAtRel = (rel) => {
-    const target = dist0 + Math.max(0, Math.min(1, rel)) * distSpan;
-    let best = 0, bd = Infinity;
+  // Výrez podľa mapy: keď používateľ priblíži/posunie mapu, grafy aj slajder
+  // pracujú len s viditeľnými bodmi trasy (graf sa „roztiahne" na detail).
+  const [winStart, winEnd] = useMemo(() => {
+    if (!mapBounds) return [0, ride.length - 1];
+    let lo = -1, hi = -1;
     for (let i = 0; i < ride.length; i++) {
-      const d = Math.abs(ride[i].dist - target);
-      if (d < bd) { bd = d; best = i; }
+      if (mapBounds.contains(ride[i].latlng)) { if (lo < 0) lo = i; hi = i; }
     }
-    return best;
-  };
+    if (lo < 0 || hi - lo < 1) return [0, ride.length - 1]; // nič/málo viditeľné → celé
+    return [lo, hi];
+  }, [mapBounds, ride]);
+
+  // Keď sa zmení výrez, udrž vybraný bod vnútri okna.
+  useEffect(() => {
+    setIdx((i) => Math.min(winEnd, Math.max(winStart, i)));
+  }, [winStart, winEnd]);
 
   // Profil prevýšenia: použijeme reálne výšky z GPX, inak ich dopočítame
   // integráciou sklonu po vzdialenosti (funguje aj pre demo trasu).
@@ -177,16 +192,32 @@ export default function RideAnalysis({ imported, onClearImport }) {
       return e;
     });
   }, [ride, fetchedEle]);
-  const eMin = Math.min(...eles), eMax = Math.max(...eles);
-  // Trasa bez výškových dát (alebo úplne rovná) → nemá zmysel kresliť profil.
-  const hasElevation = eMax - eMin >= 1;
-  // Celkové stúpanie: pri importe presne z analyzeRide, inak z profilu.
-  const eleGain = imported
-    ? imported.elevationGain
-    : Math.round(eles.reduce((s, v, i) => s + Math.max(0, v - eles[i - 1] || 0), 0));
-  // SVG dráha profilu (viewBox 0..100, x podľa vzdialenosti, 4 % okraj hore/dole).
+  // Existencia výškových dát sa posudzuje z celej trasy (nie z výrezu).
+  const hasElevation = Math.max(...eles) - Math.min(...eles) >= 1;
+
+  // Os X grafov škálovaná podľa vzdialenosti v rámci viditeľného okna.
+  const wDist0 = ride[winStart].dist;
+  const wSpan = (ride[winEnd].dist - wDist0) || 1;
+  const xPct = (i) => ((ride[i].dist - wDist0) / wSpan) * 100;
+  // Najbližší bod (v okne) k relatívnej polohe (0..1) na osi vzdialenosti.
+  const idxAtRel = (rel) => {
+    const target = wDist0 + Math.max(0, Math.min(1, rel)) * wSpan;
+    let best = winStart, bd = Infinity;
+    for (let i = winStart; i <= winEnd; i++) {
+      const d = Math.abs(ride[i].dist - target);
+      if (d < bd) { bd = d; best = i; }
+    }
+    return best;
+  };
+
+  // Y-os výškového profilu sa autoškáluje na viditeľné okno (lepší detail).
+  const winEles = eles.slice(winStart, winEnd + 1);
+  const eMin = Math.min(...winEles), eMax = Math.max(...winEles);
+  const eleGain = Math.round(winEles.reduce((s, v, i) => s + Math.max(0, v - winEles[i - 1] || 0), 0));
   const eY = (v) => 96 - ((v - eMin) / (eMax - eMin || 1)) * 92;
-  const eleLine = eles.map((v, i) => `${i ? "L" : "M"} ${xPct(i).toFixed(2)} ${eY(v).toFixed(2)}`).join(" ");
+  const eleLine = winEles
+    .map((v, k) => `${k ? "L" : "M"} ${xPct(winStart + k).toFixed(2)} ${eY(v).toFixed(2)}`)
+    .join(" ");
   const eleArea = `${eleLine} L 100 100 L 0 100 Z`;
 
   // Súhrn: pri importe z analyzeRide(), inak dopočítaný z demo trasy.
@@ -300,6 +331,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
                 attribution='&copy; OpenStreetMap'
               />
               <MapClick latlngs={latlngs} onPick={setIdx} />
+              <MapViewport onChange={setMapBounds} />
               <FollowMarker center={latlngs[cIdx]} />
 
               {/* halo pod trasou */}
@@ -406,9 +438,11 @@ export default function RideAnalysis({ imported, onClearImport }) {
                     <path d={eleLine} fill="none" stroke="#ff8a3d" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
                   </svg>
                 ) : (
-                  /* Stĺpce výkonu so šírkou podľa vzdialenosti úseku */
+                  /* Stĺpce výkonu so šírkou podľa vzdialenosti úseku (len výrez) */
                   <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: "block" }}>
-                    {ride.slice(0, -1).map((p, i) => {
+                    {Array.from({ length: winEnd - winStart }, (_, k) => {
+                      const i = winStart + k;
+                      const p = ride[i];
                       const h = Math.max(4, ((p.power - minP) / (maxP - minP || 1)) * 100);
                       const x = xPct(i);
                       return (
@@ -445,16 +479,16 @@ export default function RideAnalysis({ imported, onClearImport }) {
                 </div>
               ) : (
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "#6b7a99" }}>
-                  <span>0 km</span>
-                  <span>{(dist0 + distSpan / 2).toFixed(1)} km</span>
-                  <span>{(dist0 + distSpan).toFixed(1)} km</span>
+                  <span>{wDist0.toFixed(1)} km</span>
+                  <span>{(wDist0 + wSpan / 2).toFixed(1)} km</span>
+                  <span>{(wDist0 + wSpan).toFixed(1)} km</span>
                 </div>
               )}
             </>
           )}
           {/* slider for fine control */}
           <input
-            type="range" min={0} max={ride.length - 1} value={cIdx}
+            type="range" min={winStart} max={winEnd} value={Math.min(winEnd, Math.max(winStart, cIdx))}
             onChange={(e) => setIdx(parseInt(e.target.value))}
             style={{ width: "100%", marginTop: 10, accentColor: "#ff8a3d", cursor: "pointer" }}
           />
@@ -466,7 +500,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
           <Stat icon={Heart} label="Tep" value={cur.hr != null ? cur.hr : "—"} unit={cur.hr != null ? "bpm" : ""} color="#ff5470" />
         </div>
         <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-          <Stat icon={Gauge} label="Rýchlosť" value={cur.speed} unit="km/h" color="#7fb0ff" />
+          <Stat icon={Gauge} label="Rýchlosť" value={imported?.planned ? "—" : cur.speed} unit={imported?.planned ? "" : "km/h"} color="#7fb0ff" />
           <Stat icon={TrendingUp} label="Sklon" value={cur.slope} unit="%" color="#ff8a3d" />
         </div>
 
