@@ -368,6 +368,15 @@ describe("okrajové prípady parsera", () => {
     expect(points[0].hr).toBeNull();
   });
 
+  it("výška prebublá do track[].ele (pre profil prevýšenia)", () => {
+    const { points } = parseGpx(gpx(`
+      <trkpt lat="48.0" lon="17.0"><ele>200</ele><time>2026-06-14T07:00:00Z</time></trkpt>
+      <trkpt lat="48.02" lon="17.0"><ele>260</ele><time>2026-06-14T07:03:00Z</time></trkpt>`));
+    const ride = analyzeRide(points);
+    expect(ride.track[0].ele).toBe(200);
+    expect(ride.track[1].ele).toBe(260);
+  });
+
   it("tep z GPX prebublá do track[].hr a zón (analyzeRide)", () => {
     const { points } = parseGpx(gpx(`
       <trkpt lat="48.0" lon="17.0"><time>2026-06-14T07:00:00Z</time><extensions><gpxtpx:hr>150</gpxtpx:hr></extensions></trkpt>

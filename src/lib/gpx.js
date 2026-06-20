@@ -160,7 +160,7 @@ function planSpeedKmhForSlope(slopePct, baseKmh) {
  *   distanceKm:number, elevationGain:number, durationSec:number, movingSec:number,
  *   avgPower:number, maxPower:number, avgSpeedKmh:number, hasPower:boolean, planned:boolean,
  *   segments: Array<{dist:number, slope:number, speed:number, power:number, source:string}>,
- *   track: Array<{lat:number, lon:number, distKm:number, power:number, source:string, speed:number, slope:number, hr:number|null}>
+ *   track: Array<{lat:number, lon:number, ele:number|null, distKm:number, power:number, source:string, speed:number, slope:number, hr:number|null}>
  * }}
  */
 export function analyzeRide(points, profile = DEFAULT_PROFILE, opts = {}) {
@@ -255,6 +255,7 @@ export function analyzeRide(points, profile = DEFAULT_PROFILE, opts = {}) {
     return {
       lat: p.lat,
       lon: p.lon,
+      ele: p.ele ?? null,
       distKm: i === 0 ? 0 : seg.dist,
       power: seg.power,
       source: seg.source,
