@@ -67,4 +67,24 @@ function makeRoute({ n, totalKm, withPower }) {
 export const SAMPLE_GPX = {
   morning: buildGpx(makeRoute({ n: 120, totalKm: 42, withPower: false }), "Morning Ride"),
   garmin: buildGpx(makeRoute({ n: 160, totalKm: 65, withPower: true }), "Activity 2026"),
+  route: buildRouteGpx(makeRoute({ n: 90, totalKm: 38, withPower: false }), "Vikendovy okruh"),
 };
+
+/**
+ * Postaví GPX *plánovanej trasy* – body v <rte><rtept> bez času a výkonu
+ * (taký súbor exportuje napr. Garmin Connect / komoot pre trasu, ktorú pôjdeš).
+ */
+function buildRouteGpx(pts, name) {
+  const rtepts = pts
+    .map(
+      (p) =>
+        `      <rtept lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}"><ele>${p.ele.toFixed(1)}</ele></rtept>`
+    )
+    .join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="CycloWatt sample">
+  <rte><name>${name}</name>
+${rtepts}
+  </rte>
+</gpx>`;
+}

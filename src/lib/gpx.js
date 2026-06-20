@@ -45,56 +45,75 @@ function tagValue(xml, tag) {
  * Funguje bez DOM – vystačí si s regulárnymi výrazmi nad textom, takže beží
  * rovnako v prehliadači aj v Node (testy).
  *
+ * Prednostne číta nahraté body `<trkpt>`; ak ich niet, skúsi `<rtept>` –
+ * teda *plánovanú trasu* (napr. export z Garmin Connect / komoot), ktorá
+ * nemá čas ani výkon.
+ *
  * @param {string} xml  obsah GPX súboru
- * @returns {{points: Array<{lat:number, lon:number, ele:number|null, time:number|null, power:number|null}>, hasPower: boolean}}
+ * @returns {{points: Array<{lat:number, lon:number, ele:number|null, time:number|null, power:number|null, hr:number|null}>, hasPower: boolean, planned: boolean}}
  */
 export function parseGpx(xml) {
   if (typeof xml !== "string" || !xml.trim()) {
     throw new Error("Prázdny alebo neplatný GPX vstup");
   }
 
-  const points = [];
-  let hasPower = false;
-  // Každý <trkpt ...> ... </trkpt>; tolerujeme aj samouzatváracie body bez detí.
-  const re = /<trkpt\b([^>]*?)(?:\/>|>([\s\S]*?)<\/trkpt>)/gi;
-  let m;
-  while ((m = re.exec(xml)) !== null) {
-    const attrs = m[1] || "";
-    const body = m[2] || "";
-    const lat = parseFloat((attrs.match(/lat\s*=\s*"([^"]+)"/i) || [])[1]);
-    const lon = parseFloat((attrs.match(/lon\s*=\s*"([^"]+)"/i) || [])[1]);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+  // Body z konkrétneho tagu (<trkpt> alebo <rtept>) – rovnaká štruktúra detí.
+  const fromTag = (tag) => {
+    const pts = [];
+    const re = new RegExp(`<${tag}\\b([^>]*?)(?:\\/>|>([\\s\\S]*?)<\\/${tag}>)`, "gi");
+    let m;
+    while ((m = re.exec(xml)) !== null) {
+      const attrs = m[1] || "";
+      const body = m[2] || "";
+      const lat = parseFloat((attrs.match(/lat\s*=\s*"([^"]+)"/i) || [])[1]);
+      const lon = parseFloat((attrs.match(/lon\s*=\s*"([^"]+)"/i) || [])[1]);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
 
-    const eleRaw = tagValue(body, "ele");
-    const timeRaw = tagValue(body, "time");
-    // Výkon býva v <extensions>, najčastejšie ako <power> alebo <ns3:power>.
-    const powerRaw =
-      tagValue(body, "power") ?? tagValue(body, "ns3:power") ?? tagValue(body, "pwr");
-    // Tep býva v <extensions> ako <gpxtpx:hr> (Garmin), <ns3:hr> alebo <hr>.
-    const hrRaw =
-      tagValue(body, "gpxtpx:hr") ?? tagValue(body, "ns3:hr") ??
-      tagValue(body, "hr") ?? tagValue(body, "heartrate");
+      const eleRaw = tagValue(body, "ele");
+      const timeRaw = tagValue(body, "time");
+      // Výkon býva v <extensions>, najčastejšie ako <power> alebo <ns3:power>.
+      const powerRaw =
+        tagValue(body, "power") ?? tagValue(body, "ns3:power") ?? tagValue(body, "pwr");
+      // Tep býva v <extensions> ako <gpxtpx:hr> (Garmin), <ns3:hr> alebo <hr>.
+      const hrRaw =
+        tagValue(body, "gpxtpx:hr") ?? tagValue(body, "ns3:hr") ??
+        tagValue(body, "hr") ?? tagValue(body, "heartrate");
 
-    const ele = eleRaw != null ? parseFloat(eleRaw) : null;
-    const time = timeRaw != null ? Date.parse(timeRaw) : null;
-    const power = powerRaw != null ? parseFloat(powerRaw) : null;
-    const hr = hrRaw != null ? parseFloat(hrRaw) : null;
-    if (power != null && Number.isFinite(power)) hasPower = true;
+      const ele = eleRaw != null ? parseFloat(eleRaw) : null;
+      const time = timeRaw != null ? Date.parse(timeRaw) : null;
+      const power = powerRaw != null ? parseFloat(powerRaw) : null;
+      const hr = hrRaw != null ? parseFloat(hrRaw) : null;
 
-    points.push({
-      lat,
-      lon,
-      ele: Number.isFinite(ele) ? ele : null,
-      time: Number.isFinite(time) ? time : null,
-      power: Number.isFinite(power) ? power : null,
-      hr: Number.isFinite(hr) ? hr : null,
-    });
+      pts.push({
+        lat,
+        lon,
+        ele: Number.isFinite(ele) ? ele : null,
+        time: Number.isFinite(time) ? time : null,
+        power: Number.isFinite(power) ? power : null,
+        hr: Number.isFinite(hr) ? hr : null,
+      });
+    }
+    return pts;
+  };
+
+  // Nahratá jazda má <trkpt>; plánovaná trasa zvykne mať len <rtept>.
+  let points = fromTag("trkpt");
+  let planned = false;
+  if (points.length < 2) {
+    const rte = fromTag("rtept");
+    if (rte.length >= 2) {
+      points = rte;
+      planned = true;
+    }
   }
 
   if (points.length < 2) {
     throw new Error("GPX neobsahuje dostatok trackpointov (minimum 2)");
   }
-  return { points, hasPower };
+  const hasPower = points.some((p) => p.power != null);
+  // Trasa bez akýchkoľvek časových značiek = plánovaná (ešte neodjazdená).
+  if (!points.some((p) => p.time != null)) planned = true;
+  return { points, hasPower, planned };
 }
 
 /**
@@ -114,22 +133,42 @@ const MOVING_MIN_SPEED = 0.5; // [m/s] pod touto rýchlosťou považujeme bod za
 const MAX_SPEED = 30; // [m/s] ~108 km/h – nad tým je to GPS skok, nie jazda
 
 /**
+ * Odhad jazdnej rýchlosti pre plánovanú trasu podľa sklonu úseku.
+ * Z rovinkovej základnej rýchlosti spomalí do kopca a zrýchli z kopca –
+ * dáva realistickejší profil výkonu/ETA než jedna konštanta.
+ * @param {number} slopePct  sklon [%]
+ * @param {number} baseKmh   rovinková rýchlosť [km/h]
+ * @returns {number} rýchlosť [km/h]
+ */
+function planSpeedKmhForSlope(slopePct, baseKmh) {
+  if (slopePct > 0) return Math.max(6, baseKmh - slopePct * 1.6);
+  if (slopePct < 0) return Math.min(65, baseKmh - slopePct * 1.2);
+  return baseKmh;
+}
+
+/**
  * Z trackpointov spočíta súhrn jazdy a metriky pre každý úsek.
  * Ak body neobsahujú výkon z merača, dopočíta ho z fyziky (calcPower).
  *
  * @param {Array} points    výstup z parseGpx().points
  * @param {Object} [profile] profil jazdca/bicykla (pozri DEFAULT_PROFILE)
+ * @param {Object} [opts]
+ * @param {boolean} [opts.plan=false]      plánovaná trasa: odhadni rýchlosť/výkon
+ *                                         aj pre úseky bez časových značiek
+ * @param {number}  [opts.planSpeedKmh=22] rovinková rýchlosť pre odhad [km/h]
  * @returns {{
  *   distanceKm:number, elevationGain:number, durationSec:number, movingSec:number,
- *   avgPower:number, maxPower:number, avgSpeedKmh:number, hasPower:boolean,
+ *   avgPower:number, maxPower:number, avgSpeedKmh:number, hasPower:boolean, planned:boolean,
  *   segments: Array<{dist:number, slope:number, speed:number, power:number, source:string}>,
- *   track: Array<{lat:number, lon:number, distKm:number, power:number, source:string, speed:number, slope:number, hr:number|null}>
+ *   track: Array<{lat:number, lon:number, ele:number|null, distKm:number, power:number, source:string, speed:number, slope:number, hr:number|null}>
  * }}
  */
-export function analyzeRide(points, profile = DEFAULT_PROFILE) {
+export function analyzeRide(points, profile = DEFAULT_PROFILE, opts = {}) {
   if (!Array.isArray(points) || points.length < 2) {
     throw new Error("Na analýzu treba aspoň 2 body");
   }
+  const plan = opts.plan === true;
+  const planBaseKmh = opts.planSpeedKmh ?? 22;
   const totalMass = profile.riderMass + profile.bikeMass;
   const cda = estimateCdA(profile.heightM, profile.riderMass, profile.position);
   const { crr } = computeCrr(profile.tire);
@@ -159,7 +198,16 @@ export function analyzeRide(points, profile = DEFAULT_PROFILE) {
     let speed = dt && dt > 0 ? d / dt : 0;
     if (speed > MAX_SPEED) speed = 0; // odfiltruj GPS skoky
 
-    // Výkon: prednostne z merača (priemer oboch bodov), inak z fyziky.
+    // Plánovaná trasa nemá čas → odhadni rýchlosť úseku podľa sklonu.
+    let estimated = false;
+    if (plan && speed === 0 && d > 0) {
+      speed = planSpeedKmhForSlope(slope * 100, planBaseKmh) / 3.6;
+      estimated = true;
+    }
+    // Čas úseku: skutočný z GPS, inak odhadnutý z plánovanej rýchlosti.
+    const segSec = dt && dt > 0 ? dt : estimated && speed > 0 ? d / speed : 0;
+
+    // Výkon: prednostne z merača (priemer oboch bodov), inak z fyziky/odhadu.
     let power;
     let source;
     if (a.power != null || b.power != null) {
@@ -167,8 +215,11 @@ export function analyzeRide(points, profile = DEFAULT_PROFILE) {
       power = Math.round(vals.reduce((s, v) => s + v, 0) / vals.length);
       source = "merač";
       measuredCount++;
+    } else if (speed > 0) {
+      power = calcPower({ speed, slope, totalMass, cda, crr, rho });
+      source = estimated ? "odhad" : "fyzika";
     } else {
-      power = speed > 0 ? calcPower({ speed, slope, totalMass, cda, crr, rho }) : 0;
+      power = 0;
       source = "fyzika";
     }
 
@@ -181,15 +232,17 @@ export function analyzeRide(points, profile = DEFAULT_PROFILE) {
     });
 
     if (power > maxPower) maxPower = power;
-    if (dt && dt > 0 && speed >= MOVING_MIN_SPEED) {
-      movingSec += dt;
-      powerSum += power * dt;
+    if (segSec > 0 && speed >= MOVING_MIN_SPEED) {
+      movingSec += segSec;
+      powerSum += power * segSec;
     }
   }
 
   const first = points.find((p) => p.time != null);
   const last = [...points].reverse().find((p) => p.time != null);
-  const durationSec = first && last ? Math.max(0, (last.time - first.time) / 1000) : 0;
+  let durationSec = first && last ? Math.max(0, (last.time - first.time) / 1000) : 0;
+  // Plánovaná trasa bez časov: trvanie = odhadnutý čas v pohybe (ETA).
+  if (plan && durationSec === 0) durationSec = movingSec;
 
   const distanceKm = distance / 1000;
   const avgPower = movingSec > 0 ? Math.round(powerSum / movingSec) : 0;
@@ -202,6 +255,7 @@ export function analyzeRide(points, profile = DEFAULT_PROFILE) {
     return {
       lat: p.lat,
       lon: p.lon,
+      ele: p.ele ?? null,
       distKm: i === 0 ? 0 : seg.dist,
       power: seg.power,
       source: seg.source,
@@ -220,6 +274,7 @@ export function analyzeRide(points, profile = DEFAULT_PROFILE) {
     maxPower,
     avgSpeedKmh,
     hasPower: measuredCount > 0,
+    planned: plan,
     segments,
     track,
   };
@@ -227,10 +282,13 @@ export function analyzeRide(points, profile = DEFAULT_PROFILE) {
 
 /**
  * Pohodlný obal: z textu GPX rovno vráti súhrn jazdy.
+ * Plánovanú trasu (bez časových značiek) automaticky spracuje s odhadom
+ * rýchlosti a výkonu, aby ju bolo vidno na mape aj s profilom námahy.
  * @param {string} xml
  * @param {Object} [profile]
+ * @param {Object} [opts]  pozri analyzeRide (napr. planSpeedKmh)
  */
-export function importGpx(xml, profile = DEFAULT_PROFILE) {
-  const { points } = parseGpx(xml);
-  return analyzeRide(points, profile);
+export function importGpx(xml, profile = DEFAULT_PROFILE, opts = {}) {
+  const { points, planned } = parseGpx(xml);
+  return analyzeRide(points, profile, { plan: planned, ...opts });
 }

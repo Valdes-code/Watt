@@ -3,10 +3,11 @@ import { MapContainer, TileLayer, Polyline, CircleMarker, useMapEvents, useMap }
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
-  Zap, Heart, Gauge, TrendingUp, MapPin, Cpu, ChevronLeft, ChevronRight, X,
+  Zap, Heart, Gauge, TrendingUp, MapPin, Cpu, ChevronLeft, ChevronRight, X, Mountain,
 } from "lucide-react";
 // Zdieľaný fyzikálny engine (pozri src/lib/physics.js)
 import { airDensity, estimateCdA, calcPower, physicsTrust, fuse, hrZone } from "../lib/physics.js";
+import { fetchElevations } from "../lib/elevation.js";
 
 const CFG = { rider: 75, bike: 8.5, height: 180, crr: 0.0052, pos: "hoods", restHR: 60, maxHR: 190 };
 
@@ -110,6 +111,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
       return imported.track.map((t) => ({
         latlng: [t.lat, t.lon],
         dist: t.distKm,
+        ele: t.ele,
         power: t.power,
         source: t.source,
         speed: t.speed,
@@ -121,12 +123,19 @@ export default function RideAnalysis({ imported, onClearImport }) {
     return buildRide(120).map((p) => ({ ...p, latlng: geo(p) }));
   }, [imported]);
 
-  const [mode, setMode] = useState("power"); // 'power' | 'zone'
+  const [mode, setMode] = useState("power"); // 'power' | 'zone' – farbenie mapy
+  const [metric, setMetric] = useState("power"); // 'power' | 'ele' – veľký graf pozdĺž trasy
   const [idx, setIdx] = useState(0);
+  const [fetchedEle, setFetchedEle] = useState(null); // výšky dotiahnuté online
+  const [eleStatus, setEleStatus] = useState("idle"); // idle | loading | error
   const graphRef = useRef();
 
-  // Pri zmene zdroja (import ↔ demo) skoč na stred trasy.
-  useEffect(() => { setIdx(Math.floor(ride.length / 2)); }, [ride]);
+  // Pri zmene zdroja (import ↔ demo) skoč na stred trasy a zahoď dotiahnuté výšky.
+  useEffect(() => {
+    setIdx(Math.floor(ride.length / 2));
+    setFetchedEle(null);
+    setEleStatus("idle");
+  }, [ride]);
 
   const powers = ride.map((p) => p.power);
   const minP = Math.min(...powers), maxP = Math.max(...powers);
@@ -141,16 +150,71 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const latlngs = useMemo(() => ride.map((p) => p.latlng), [ride]);
   const bounds = useMemo(() => L.latLngBounds(latlngs).pad(0.1), [latlngs]);
 
+  // Os X grafov je škálovaná podľa prejdenej vzdialenosti (km), nie podľa
+  // poradia bodov – takže rovnomerné delenie na osi zodpovedá reálnym metrom.
+  const dist0 = ride[0].dist;
+  const distSpan = (ride[ride.length - 1].dist - dist0) || 1;
+  const xPct = (i) => ((ride[i].dist - dist0) / distSpan) * 100;
+  // Najbližší bod trasy k relatívnej polohe (0..1) na osi vzdialenosti.
+  const idxAtRel = (rel) => {
+    const target = dist0 + Math.max(0, Math.min(1, rel)) * distSpan;
+    let best = 0, bd = Infinity;
+    for (let i = 0; i < ride.length; i++) {
+      const d = Math.abs(ride[i].dist - target);
+      if (d < bd) { bd = d; best = i; }
+    }
+    return best;
+  };
+
+  // Profil prevýšenia: použijeme reálne výšky z GPX, inak ich dopočítame
+  // integráciou sklonu po vzdialenosti (funguje aj pre demo trasu).
+  const eles = useMemo(() => {
+    if (fetchedEle && fetchedEle.length === ride.length) return fetchedEle;
+    if (ride.every((p) => p.ele != null)) return ride.map((p) => p.ele);
+    let e = 0;
+    return ride.map((p, i) => {
+      if (i > 0) e += (p.slope / 100) * (p.dist - ride[i - 1].dist) * 1000;
+      return e;
+    });
+  }, [ride, fetchedEle]);
+  const eMin = Math.min(...eles), eMax = Math.max(...eles);
+  // Trasa bez výškových dát (alebo úplne rovná) → nemá zmysel kresliť profil.
+  const hasElevation = eMax - eMin >= 1;
+  // Celkové stúpanie: pri importe presne z analyzeRide, inak z profilu.
+  const eleGain = imported
+    ? imported.elevationGain
+    : Math.round(eles.reduce((s, v, i) => s + Math.max(0, v - eles[i - 1] || 0), 0));
+  // SVG dráha profilu (viewBox 0..100, x podľa vzdialenosti, 4 % okraj hore/dole).
+  const eY = (v) => 96 - ((v - eMin) / (eMax - eMin || 1)) * 92;
+  const eleLine = eles.map((v, i) => `${i ? "L" : "M"} ${xPct(i).toFixed(2)} ${eY(v).toFixed(2)}`).join(" ");
+  const eleArea = `${eleLine} L 100 100 L 0 100 Z`;
+
   // Súhrn: pri importe z analyzeRide(), inak dopočítaný z demo trasy.
   const avgP = imported ? imported.avgPower : Math.round(powers.reduce((s, v) => s + v, 0) / powers.length);
   const maxPower = imported ? imported.maxPower : maxP;
   const totalDist = imported ? imported.distanceKm : ride[ride.length - 1].dist;
 
-  const handleGraph = (e) => {
-    const rect = graphRef.current.getBoundingClientRect();
-    const rel = (e.clientX - rect.left) / rect.width;
-    const newIdx = Math.max(0, Math.min(ride.length - 1, Math.round(rel * (ride.length - 1))));
-    setIdx(newIdx);
+  // Scrub na grafe/profile → najbližší bod podľa vzdialenosti (rovnaká os km).
+  const scrub = (e, ref) => {
+    const rect = ref.current.getBoundingClientRect();
+    setIdx(idxAtRel((e.clientX - rect.left) / rect.width));
+  };
+  const handleGraph = (e) => scrub(e, graphRef);
+
+  // Dotiahne výšky terénu online (open-meteo) pre trasy bez <ele> v GPX.
+  const loadElevation = async () => {
+    setEleStatus("loading");
+    try {
+      const els = await fetchElevations(ride.map((p) => ({ lat: p.latlng[0], lon: p.latlng[1] })));
+      if (els.some((v) => typeof v === "number")) {
+        setFetchedEle(els);
+        setEleStatus("idle");
+      } else {
+        setEleStatus("error");
+      }
+    } catch {
+      setEleStatus("error");
+    }
   };
 
   return (
@@ -188,7 +252,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
               📍 {imported.name}
             </span>
             <span style={{ fontSize: 10.5, color: "#6b7a99" }}>
-              {imported.hasPower ? "merač" : "z fyziky"}
+              {imported.planned ? "plán · odhad" : imported.hasPower ? "merač" : "z fyziky"}
             </span>
             <button onClick={onClearImport} title="Zavrieť import (späť na demo)" style={{
               background: "none", border: "none", cursor: "pointer", color: "#8a99b8",
@@ -278,34 +342,116 @@ export default function RideAnalysis({ imported, onClearImport }) {
           </div>
         </div>
 
-        {/* GRAPH (scrub) */}
+        {/* GRAPH (scrub) – prepínateľný: Výkon / Prevýšenie pozdĺž trasy */}
         <div style={{ background: "#101725", border: "1px solid #1e2940", borderRadius: 16, padding: 14, marginBottom: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#8a99b8", letterSpacing: 0.5 }}>VÝKON POZDĹŽ TRASY</span>
-            <span style={{ fontSize: 11, color: "#6b7a99" }}>klikni alebo potiahni ↓</span>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#8a99b8", letterSpacing: 0.5 }}>
+              {metric === "ele" ? "PREVÝŠENIE POZDĹŽ TRASY" : "VÝKON POZDĹŽ TRASY"}
+            </span>
+            <div style={{ display: "flex", gap: 6 }}>
+              {[["power", "Výkon"], ["ele", "Prevýšenie"]].map(([k, t]) => {
+                const on = metric === k;
+                return (
+                  <button key={k} onClick={() => setMetric(k)} style={{
+                    padding: "4px 10px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 700,
+                    border: on ? "1px solid #ffd54a" : "1px solid #1e2940",
+                    background: on ? "rgba(255,213,74,0.12)" : "#141c2e",
+                    color: on ? "#ffd54a" : "#8a99b8",
+                  }}>{t}</button>
+                );
+              })}
+            </div>
           </div>
-          <div
-            ref={graphRef}
-            onMouseDown={handleGraph}
-            onMouseMove={(e) => e.buttons === 1 && handleGraph(e)}
-            style={{ position: "relative", height: 90, cursor: "pointer", display: "flex", alignItems: "flex-end", gap: 1 }}
-          >
-            {ride.map((p, i) => (
-              <div key={i} style={{
-                flex: 1,
-                height: `${Math.max(4, ((p.power - minP) / (maxP - minP || 1)) * 100)}%`,
-                background: i === cIdx ? "#fff" : colorFor(p),
-                opacity: i === cIdx ? 1 : 0.85,
-                borderRadius: 1,
-              }} />
-            ))}
-            {/* position line */}
-            <div style={{
-              position: "absolute", top: 0, bottom: 0,
-              left: `${(cIdx / (ride.length - 1)) * 100}%`,
-              width: 2, background: "#fff", pointerEvents: "none",
-            }} />
-          </div>
+
+          {metric === "ele" && !hasElevation ? (
+            /* Prevýšenie bez dát – ponuka dopočtu online */
+            <div style={{ minHeight: 90, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 6, padding: "6px 0" }}>
+              <Mountain size={20} color="#6b7a99" style={{ opacity: 0.6 }} />
+              <span style={{ fontSize: 12, color: "#8a99b8", fontWeight: 600 }}>Trasa neobsahuje výškové dáta</span>
+              <span style={{ fontSize: 10.5, color: "#6b7a99", lineHeight: 1.4, maxWidth: 300 }}>
+                Tvoje GPX nemá uložené výšky (&lt;ele&gt;). Môžem ich dopočítať z terénu online.
+              </span>
+              {eleStatus === "error" && (
+                <span style={{ fontSize: 10.5, color: "#ff8a3d", fontWeight: 600 }}>
+                  Výšky sa nepodarilo stiahnuť (sieť/limit). Skús znova.
+                </span>
+              )}
+              <button onClick={loadElevation} disabled={eleStatus === "loading"} style={{
+                marginTop: 2, background: eleStatus === "loading" ? "#1e2940" : "#ff8a3d",
+                border: "none", borderRadius: 10, padding: "8px 14px",
+                cursor: eleStatus === "loading" ? "default" : "pointer",
+                fontSize: 12, fontWeight: 800, color: eleStatus === "loading" ? "#8a99b8" : "#0d1320",
+              }}>
+                {eleStatus === "loading" ? "Sťahujem výšky…" : "Dopočítať výšky online"}
+              </button>
+            </div>
+          ) : (
+            <>
+              <div
+                ref={graphRef}
+                onMouseDown={handleGraph}
+                onMouseMove={(e) => e.buttons === 1 && handleGraph(e)}
+                style={{ position: "relative", height: 90, cursor: "pointer" }}
+              >
+                {metric === "ele" ? (
+                  /* Profil prevýšenia celej trasy (plocha + krivka) */
+                  <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: "block", overflow: "visible" }}>
+                    <defs>
+                      <linearGradient id="eleFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#ff8a3d" stopOpacity="0.35" />
+                        <stop offset="100%" stopColor="#ff8a3d" stopOpacity="0.02" />
+                      </linearGradient>
+                    </defs>
+                    <path d={eleArea} fill="url(#eleFill)" />
+                    <path d={eleLine} fill="none" stroke="#ff8a3d" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+                  </svg>
+                ) : (
+                  /* Stĺpce výkonu so šírkou podľa vzdialenosti úseku */
+                  <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: "block" }}>
+                    {ride.slice(0, -1).map((p, i) => {
+                      const h = Math.max(4, ((p.power - minP) / (maxP - minP || 1)) * 100);
+                      const x = xPct(i);
+                      return (
+                        <rect key={i}
+                          x={x} y={100 - h} width={Math.max(0.01, xPct(i + 1) - x)} height={h}
+                          fill={i === cIdx ? "#fff" : colorFor(p)}
+                          opacity={i === cIdx ? 1 : 0.85}
+                        />
+                      );
+                    })}
+                  </svg>
+                )}
+                {/* position line (podľa vzdialenosti) */}
+                <div style={{
+                  position: "absolute", top: 0, bottom: 0,
+                  left: `${xPct(cIdx)}%`,
+                  width: 2, background: "#fff", pointerEvents: "none",
+                }} />
+                {/* bod na výškovej krivke */}
+                {metric === "ele" && (
+                  <div style={{
+                    position: "absolute", left: `${xPct(cIdx)}%`, top: `${eY(eles[cIdx])}%`,
+                    width: 9, height: 9, borderRadius: "50%", background: "#fff",
+                    border: "2px solid #ff8a3d", transform: "translate(-50%,-50%)", pointerEvents: "none",
+                  }} />
+                )}
+              </div>
+              {/* spodný riadok: pri výkone os v km, pri prevýšení rozsah + stúpanie */}
+              {metric === "ele" ? (
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 10, color: "#6b7a99" }}>
+                  <span>{Math.round(eMin)} m</span>
+                  <span style={{ color: "#ff8a3d", fontWeight: 700 }}>{Math.round(eles[cIdx])} m · ↑ {eleGain} m</span>
+                  <span>{Math.round(eMax)} m</span>
+                </div>
+              ) : (
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "#6b7a99" }}>
+                  <span>0 km</span>
+                  <span>{(dist0 + distSpan / 2).toFixed(1)} km</span>
+                  <span>{(dist0 + distSpan).toFixed(1)} km</span>
+                </div>
+              )}
+            </>
+          )}
           {/* slider for fine control */}
           <input
             type="range" min={0} max={ride.length - 1} value={cIdx}
@@ -366,7 +512,9 @@ export default function RideAnalysis({ imported, onClearImport }) {
 
         <p style={{ fontSize: 11, color: "#5d6b88", textAlign: "center", marginTop: 14, lineHeight: 1.5 }}>
           {imported
-            ? "Reálna trasa z tvojho GPX. Klikni na mapu alebo potiahni po grafe – uvidíš výkon, tep a sklon v danom mieste. Podklad: OpenStreetMap."
+            ? imported.planned
+              ? "Plánovaná trasa z tvojho GPX – ešte neodjazdená. Výkon je odhad pri ~22 km/h (spomalený do kopca, rýchlejší z kopca). Klikni na mapu alebo potiahni po grafe. Podklad: OpenStreetMap."
+              : "Reálna trasa z tvojho GPX. Klikni na mapu alebo potiahni po grafe – uvidíš výkon, tep a sklon v danom mieste. Podklad: OpenStreetMap."
             : "Ukážková jazda. Klikni kdekoľvek na mapu alebo potiahni po grafe – a importom vlastného GPX (záložka Import) sem dostaneš svoju trasu. Podklad: OpenStreetMap."}
         </p>
       </div>
