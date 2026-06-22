@@ -85,7 +85,7 @@ function powerColor(p, min, max) {
 // „rozbehlo" tak, že sa dlaždice nestíhajú načítať. Preto centrovanie ŠKRTÍME
 // (throttle): posun mapy najviac raz za PAN_GAP ms, na poslednú známu polohu,
 // s pokojnou animáciou – pohyb je tak plynulý a pomalší.
-const PAN_GAP = 450; // min. rozostup posunov mapy [ms]
+const PAN_GAP = 900; // min. rozostup posunov mapy [ms]
 function FollowMarker({ center, routeBounds }) {
   const map = useMap();
   const first = useRef(true);
@@ -99,7 +99,7 @@ function FollowMarker({ center, routeBounds }) {
 
     const pan = () => {
       lastPan.current = Date.now();
-      map.panTo(target.current, { animate: true, duration: 0.45 });
+      map.panTo(target.current, { animate: true, duration: 0.9 });
     };
     const since = Date.now() - lastPan.current;
     clearTimeout(timer.current);
