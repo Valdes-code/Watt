@@ -75,27 +75,26 @@ function powerColor(p, min, max) {
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
 
-// Mapa sleduje aktuálny bod – pri scrube slidera / kliknutí sa naň
-// plynule vycentruje, pričom si zachová priblíženie zvolené prstami.
-// Prvé vykreslenie preskočíme, nech ostane úvodný „celá trasa“ pohľad.
-function FollowMarker({ center }) {
+// Mapa sa vycentruje na aktuálny bod LEN keď sa bod zmení (pohyb slajdera,
+// scrub grafu, klik do mapy) – NIE pri ručnom posune/priblížení mapy (vtedy sa
+// bod nemení, takže tento efekt nezbehne a mapa ostane tam, kam ju používateľ
+// posunul). Pri pohľade na celú trasu necentrujeme, nech mapa neposkakuje;
+// centrujeme až keď je mapa priblížená (celá trasa sa do výrezu nezmestí).
+function FollowMarker({ center, routeBounds }) {
   const map = useMap();
   const first = useRef(true);
   useEffect(() => {
     if (first.current) { first.current = false; return; }
-    // Mapu posúvame LEN keď by aktívny bod vyšiel z viditeľnej časti. Pri scrube
-    // vnútri výrezu tak mapa ostáva stabilná → slajder zodpovedá presne tomu, čo
-    // je vidno (inak by sa výrez stále presúval a rozsah slajdera „uchádzal").
-    if (!map.getBounds().pad(-0.1).contains(center)) {
+    if (!map.getBounds().contains(routeBounds)) {
       map.panTo(center, { animate: true, duration: 0.25 });
     }
   }, [center[0], center[1]]);
   return null;
 }
 
-// Sleduje aktuálny výrez mapy (zoom, posun aj dorovnanie bodu do okna), aby
-// grafy a slajder pracovali presne s viditeľným úsekom trasy. 'moveend' pokrýva
-// všetky pohyby; slučka nehrozí, lebo FollowMarker posúva mapu len na okraji.
+// Sleduje aktuálny výrez mapy (zoom aj posun), aby sa detailné okno grafov
+// prispôsobilo viditeľnému úseku trasy. 'moveend' pokrýva všetky pohyby; slučka
+// nehrozí, lebo výrez už neprepisuje vybraný bod (žiadne dorovnávanie do okna).
 function MapViewport({ onChange }) {
   const map = useMapEvents({
     moveend() { onChange(map.getBounds()); },
@@ -192,11 +191,9 @@ export default function RideAnalysis({ imported, onClearImport }) {
     return [lo, hi];
   }, [mapBounds, ride]);
 
-  // Pri zmene výrezu (zoom/posun) dorovnaj bod do viditeľného okna, nech je čo
-  // ukazovať. Slajder ostáva na celej trase – toto neobmedzuje jeho rozsah.
-  useEffect(() => {
-    setIdx((i) => Math.min(winEnd, Math.max(winStart, i)));
-  }, [winStart, winEnd]);
+  // Pozn.: vybraný bod zámerne NEdorovnávame do viditeľného okna pri posune/zoome
+  // mapy – inak by sa pri ručnom posune bod „prilepil" k okraju a mapa by sa naň
+  // znova vycentrovala. Bod mení len slajder/scrub/klik; mapu možno voľne posúvať.
 
   // Profil prevýšenia: použijeme reálne výšky z GPX, inak ich dopočítame
   // integráciou sklonu po vzdialenosti (funguje aj pre demo trasu).
@@ -377,7 +374,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
               />
               <MapClick latlngs={latlngs} onPick={setIdx} />
               <MapViewport onChange={setMapBounds} />
-              <FollowMarker center={latlngs[cIdx]} />
+              <FollowMarker center={latlngs[cIdx]} routeBounds={bounds} />
 
               {/* halo pod trasou */}
               <Polyline positions={latlngs} pathOptions={{ color: "#000", weight: 8, opacity: 0.35, lineCap: "round" }} />
