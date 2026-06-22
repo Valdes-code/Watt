@@ -80,14 +80,32 @@ function powerColor(p, min, max) {
 // bod nemení, takže tento efekt nezbehne a mapa ostane tam, kam ju používateľ
 // posunul). Pri pohľade na celú trasu necentrujeme, nech mapa neposkakuje;
 // centrujeme až keď je mapa priblížená (celá trasa sa do výrezu nezmestí).
+//
+// Pri silnom priblížení a rýchlom ťahaní slajdera by panTo na každý tik mapu
+// „rozbehlo" tak, že sa dlaždice nestíhajú načítať. Preto centrovanie ŠKRTÍME
+// (throttle): posun mapy najviac raz za PAN_GAP ms, na poslednú známu polohu,
+// s pokojnou animáciou – pohyb je tak plynulý a pomalší.
+const PAN_GAP = 450; // min. rozostup posunov mapy [ms]
 function FollowMarker({ center, routeBounds }) {
   const map = useMap();
   const first = useRef(true);
+  const lastPan = useRef(0);
+  const timer = useRef(null);
+  const target = useRef(center);
   useEffect(() => {
+    target.current = center;
     if (first.current) { first.current = false; return; }
-    if (!map.getBounds().contains(routeBounds)) {
-      map.panTo(center, { animate: true, duration: 0.25 });
-    }
+    if (map.getBounds().contains(routeBounds)) return; // celá trasa vidno → necentruj
+
+    const pan = () => {
+      lastPan.current = Date.now();
+      map.panTo(target.current, { animate: true, duration: 0.45 });
+    };
+    const since = Date.now() - lastPan.current;
+    clearTimeout(timer.current);
+    if (since >= PAN_GAP) pan();                          // dosť času ubehlo → posuň hneď
+    else timer.current = setTimeout(pan, PAN_GAP - since); // inak posuň na konci intervalu
+    return () => clearTimeout(timer.current);
   }, [center[0], center[1]]);
   return null;
 }
