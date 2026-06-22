@@ -173,8 +173,11 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const latlngs = useMemo(() => ride.map((p) => p.latlng), [ride]);
   const bounds = useMemo(() => L.latLngBounds(latlngs).pad(0.1), [latlngs]);
 
-  // Výrez podľa mapy: keď používateľ priblíži/posunie mapu, grafy aj slajder
-  // pracujú len s viditeľnými bodmi trasy (graf sa „roztiahne" na detail).
+  // Detailné okno grafov = úsek trasy, ktorý je práve viditeľný na mape. Keďže
+  // mapa sleduje aktuálny bod (FollowMarker) a 'moveend' aktualizuje výrez, okno
+  // sa popri posune bodu „posúva" (scrolluje) – aj profil prevýšenia. Slajder
+  // pritom ovláda CELÚ trasu, takže sa dá prejsť od začiatku po koniec aj pri
+  // veľkom priblížení (bod dôjde na okraj → mapa sa posunie → okno ide ďalej).
   const [winStart, winEnd] = useMemo(() => {
     if (!mapBounds) return [0, ride.length - 1];
     let lo = -1, hi = -1;
@@ -182,14 +185,15 @@ export default function RideAnalysis({ imported, onClearImport }) {
       if (mapBounds.contains(ride[i].latlng)) { if (lo < 0) lo = i; hi = i; }
     }
     if (lo < 0) return [0, ride.length - 1];          // nič viditeľné → celá trasa
-    if (lo === hi) {                                   // len jeden bod → rozšír o suseda,
-      lo = Math.max(0, lo - 1);                        // nech má slajder vždy aký rozsah ovládať
+    if (lo === hi) {                                   // len jeden bod → rozšír o suseda
+      lo = Math.max(0, lo - 1);
       hi = Math.min(ride.length - 1, hi + 1);
     }
     return [lo, hi];
   }, [mapBounds, ride]);
 
-  // Keď sa zmení výrez, udrž vybraný bod vnútri okna.
+  // Pri zmene výrezu (zoom/posun) dorovnaj bod do viditeľného okna, nech je čo
+  // ukazovať. Slajder ostáva na celej trase – toto neobmedzuje jeho rozsah.
   useEffect(() => {
     setIdx((i) => Math.min(winEnd, Math.max(winStart, i)));
   }, [winStart, winEnd]);
@@ -555,9 +559,9 @@ export default function RideAnalysis({ imported, onClearImport }) {
               )}
             </>
           )}
-          {/* slider for fine control */}
+          {/* slajder ovláda celú trasu (0..koniec) – nezávisle od priblíženia mapy */}
           <input
-            type="range" min={winStart} max={winEnd} value={Math.min(winEnd, Math.max(winStart, cIdx))}
+            type="range" min={0} max={ride.length - 1} value={cIdx}
             onChange={(e) => setIdx(parseInt(e.target.value))}
             style={{ width: "100%", marginTop: 10, accentColor: "#ff8a3d", cursor: "pointer" }}
           />
