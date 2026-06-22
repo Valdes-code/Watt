@@ -147,11 +147,14 @@ export default function RideAnalysis({ imported, onClearImport }) {
   // aj výrez mapy (graf zobrazí celú trasu).
   useEffect(() => {
     setIdx(Math.floor(ride.length / 2));
-    setTipIdx(0);
+    // Pri pláne začni na „vzdialenosť do cieľa" (index 2) – je to jediná živá
+    // hodnota, ktorá sa hneď mení s posunom bodu, takže používateľ rovno vidí,
+    // že roh reaguje na polohu (celkové súčty #1/#2 sú zámerne konštantné).
+    setTipIdx(imported?.planned ? 2 : 0);
     setFetchedEle(null);
     setEleStatus("idle");
     setMapBounds(null);
-  }, [ride]);
+  }, [ride, imported]);
 
   const powers = ride.map((p) => p.power);
   const minP = Math.min(...powers), maxP = Math.max(...powers);
