@@ -75,37 +75,21 @@ function powerColor(p, min, max) {
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
 
-// Mapa sa vycentruje na aktuálny bod LEN keď sa bod zmení (pohyb slajdera,
-// scrub grafu, klik do mapy) – NIE pri ručnom posune/priblížení mapy (vtedy sa
-// bod nemení, takže tento efekt nezbehne a mapa ostane tam, kam ju používateľ
-// posunul). Pri pohľade na celú trasu necentrujeme, nech mapa neposkakuje;
-// centrujeme až keď je mapa priblížená (celá trasa sa do výrezu nezmestí).
-//
-// Pri silnom priblížení a rýchlom ťahaní slajdera by panTo na každý tik mapu
-// „rozbehlo" tak, že sa dlaždice nestíhajú načítať. Preto centrovanie ŠKRTÍME
-// (throttle): posun mapy najviac raz za PAN_GAP ms, na poslednú známu polohu,
-// s pokojnou animáciou – pohyb je tak plynulý a pomalší.
-const PAN_GAP = 900; // min. rozostup posunov mapy [ms]
+// Mapou hýbeme LEN keď by aktívny bod vyšiel z viditeľnej časti (rezerva 20 %
+// od okraja). Kým je bod vnútri výrezu, mapa stojí – pri ťahaní slajdera teda
+// nelieta a dlaždice sa stíhajú. Keď sa bod priblíži k okraju, mapa sa naň
+// BEZ animácie okamžite prepne (animovaný posun by pri rýchlom scrube zaostával
+// a bod by „ušiel" mimo okno). Tak je bod vždy viditeľný a mapa neposkakuje
+// zbytočne. Pri pohľade na celú trasu necentrujeme; posúvame iba pri zmene bodu.
 function FollowMarker({ center, routeBounds }) {
   const map = useMap();
   const first = useRef(true);
-  const lastPan = useRef(0);
-  const timer = useRef(null);
-  const target = useRef(center);
   useEffect(() => {
-    target.current = center;
     if (first.current) { first.current = false; return; }
-    if (map.getBounds().contains(routeBounds)) return; // celá trasa vidno → necentruj
-
-    const pan = () => {
-      lastPan.current = Date.now();
-      map.panTo(target.current, { animate: true, duration: 0.9 });
-    };
-    const since = Date.now() - lastPan.current;
-    clearTimeout(timer.current);
-    if (since >= PAN_GAP) pan();                          // dosť času ubehlo → posuň hneď
-    else timer.current = setTimeout(pan, PAN_GAP - since); // inak posuň na konci intervalu
-    return () => clearTimeout(timer.current);
+    if (map.getBounds().contains(routeBounds)) return;        // celá trasa vidno → necentruj
+    if (!map.getBounds().pad(-0.2).contains(center)) {        // bod blízko okraja → dorovnaj
+      map.panTo(center, { animate: false });
+    }
   }, [center[0], center[1]]);
   return null;
 }
