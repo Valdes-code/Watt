@@ -366,7 +366,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
             <MapContainer
               key={imported ? imported.name : "demo"}
               bounds={bounds}
-              maxZoom={16}
+              maxZoom={14}
               style={{ height: "100%", width: "100%", background: "#0d1424" }}
               scrollWheelZoom
               attributionControl={false}
@@ -374,7 +374,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
               <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; OpenStreetMap'
-                maxZoom={16}
+                maxZoom={14}
               />
               <MapClick latlngs={latlngs} onPick={setIdx} />
               <MapViewport onChange={setMapBounds} />
