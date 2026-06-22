@@ -375,6 +375,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; OpenStreetMap'
                 maxZoom={11}
+                detectRetina
               />
               <MapClick latlngs={latlngs} onPick={setIdx} />
               <MapViewport onChange={setMapBounds} />
