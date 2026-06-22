@@ -83,18 +83,22 @@ function FollowMarker({ center }) {
   const first = useRef(true);
   useEffect(() => {
     if (first.current) { first.current = false; return; }
-    map.panTo(center, { animate: true, duration: 0.25 });
+    // Mapu posúvame LEN keď by aktívny bod vyšiel z viditeľnej časti. Pri scrube
+    // vnútri výrezu tak mapa ostáva stabilná → slajder zodpovedá presne tomu, čo
+    // je vidno (inak by sa výrez stále presúval a rozsah slajdera „uchádzal").
+    if (!map.getBounds().pad(-0.1).contains(center)) {
+      map.panTo(center, { animate: true, duration: 0.25 });
+    }
   }, [center[0], center[1]]);
   return null;
 }
 
-// Sleduje výrez mapy pri používateľskom priblížení/posune (zoom, drag).
-// Zámerne NEpočúva 'moveend' – ten spúšťa aj programový panTo z FollowMarker,
-// čo by spôsobilo spätnú slučku. 'dragend'/'zoomend' reagujú len na používateľa.
+// Sleduje aktuálny výrez mapy (zoom, posun aj dorovnanie bodu do okna), aby
+// grafy a slajder pracovali presne s viditeľným úsekom trasy. 'moveend' pokrýva
+// všetky pohyby; slučka nehrozí, lebo FollowMarker posúva mapu len na okraji.
 function MapViewport({ onChange }) {
   const map = useMapEvents({
-    zoomend() { onChange(map.getBounds()); },
-    dragend() { onChange(map.getBounds()); },
+    moveend() { onChange(map.getBounds()); },
   });
   return null;
 }
@@ -177,7 +181,11 @@ export default function RideAnalysis({ imported, onClearImport }) {
     for (let i = 0; i < ride.length; i++) {
       if (mapBounds.contains(ride[i].latlng)) { if (lo < 0) lo = i; hi = i; }
     }
-    if (lo < 0 || hi - lo < 1) return [0, ride.length - 1]; // nič/málo viditeľné → celé
+    if (lo < 0) return [0, ride.length - 1];          // nič viditeľné → celá trasa
+    if (lo === hi) {                                   // len jeden bod → rozšír o suseda,
+      lo = Math.max(0, lo - 1);                        // nech má slajder vždy aký rozsah ovládať
+      hi = Math.min(ride.length - 1, hi + 1);
+    }
     return [lo, hi];
   }, [mapBounds, ride]);
 
