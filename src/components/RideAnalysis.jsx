@@ -141,6 +141,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const [idx, setIdx] = useState(0);
   const [sliderVal, setSliderVal] = useState(0); // poloha thumbu (sleduje prst voľne)
   const [tipIdx, setTipIdx] = useState(0); // ktorá hodnota sa ukazuje v rohu mapy (len plán)
+  const [cornerOpen, setCornerOpen] = useState(true); // štítok v rohu mapy rozbalený/zbalený
   const [fetchedEle, setFetchedEle] = useState(null); // výšky dotiahnuté online
   const [eleStatus, setEleStatus] = useState("idle"); // idle | loading | error
   const [mapBounds, setMapBounds] = useState(null); // výrez mapy (pri priblížení)
@@ -479,51 +480,84 @@ export default function RideAnalysis({ imported, onClearImport }) {
             </MapContainer>
           </div>
 
-          {/* floating tooltip – pri pláne prepínateľný klikom, inak živý výkon */}
-          <div
-            onClick={planned ? () => setTipIdx((i) => (i + 1) % tips.length) : undefined}
-            title={planned ? "Klikni pre ďalšiu hodnotu" : undefined}
-            style={{
-              position: "absolute", top: 16, right: 16, zIndex: 1000,
-              background: "rgba(13,20,36,0.92)", border: "1px solid #1e2940",
-              borderRadius: 12, padding: "10px 13px", backdropFilter: "blur(8px)",
-              minWidth: 96, pointerEvents: planned ? "auto" : "none",
-              cursor: planned ? "pointer" : "default", userSelect: "none",
-            }}
-          >
-            {planned ? (
-              <>
-                <div style={{ fontSize: 10, color: "#6b7a99", fontWeight: 600 }}>
-                  bod {cur.dist.toFixed(1)} km
-                </div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: tip.color, lineHeight: 1.1 }}>
-                  {tip.value}<span style={{ fontSize: 13, marginLeft: 2 }}>{tip.unit}</span>
-                </div>
-                <div style={{ fontSize: 10.5, color: "#8a99b8", fontWeight: 600 }}>{tip.label}</div>
-                {/* indikátor, ktorá zo 4 hodnôt je aktívna */}
-                <div style={{ display: "flex", gap: 4, marginTop: 7 }}>
-                  {tips.map((_, i) => (
-                    <span key={i} style={{
-                      width: 5, height: 5, borderRadius: "50%",
-                      background: i === tipIdx ? tip.color : "#2a3550",
-                    }} />
-                  ))}
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize: 10, color: "#6b7a99", fontWeight: 600 }}>
-                  {cur.dist.toFixed(1)} km
-                </div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: colorFor(cur), lineHeight: 1.1 }}>
-                  {cur.power}<span style={{ fontSize: 13, marginLeft: 2 }}>W</span>
-                </div>
-                <div style={{ fontSize: 10.5, color: cur.zone ? cur.zone.color : "#6b7a99", fontWeight: 600 }}>
-                  {cur.zone ? cur.zone.label : "tep neznámy"}
-                </div>
-              </>
-            )}
-          </div>
+          {/* floating štítok – zrolovateľný do rohu; pri pláne prepínateľný klikom */}
+          {cornerOpen ? (
+            <div
+              style={{
+                position: "absolute", top: 16, right: 16, zIndex: 1000,
+                background: "rgba(13,20,36,0.92)", border: "1px solid #1e2940",
+                borderRadius: 12, padding: "10px 13px", backdropFilter: "blur(8px)",
+                minWidth: 96, userSelect: "none",
+              }}
+            >
+              {/* zbaliť do rohu */}
+              <button
+                onClick={() => setCornerOpen(false)}
+                title="Zbaliť do rohu"
+                style={{
+                  position: "absolute", top: 3, right: 3, width: 20, height: 20, padding: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "transparent", border: "none", color: "#6b7a99", cursor: "pointer",
+                }}
+              >
+                <ChevronRight size={15} />
+              </button>
+              {/* obsah – klik prepína hodnotu (len plán) */}
+              <div
+                onClick={planned ? () => setTipIdx((i) => (i + 1) % tips.length) : undefined}
+                title={planned ? "Klikni pre ďalšiu hodnotu" : undefined}
+                style={{ cursor: planned ? "pointer" : "default", paddingRight: 12 }}
+              >
+                {planned ? (
+                  <>
+                    <div style={{ fontSize: 10, color: "#6b7a99", fontWeight: 600 }}>
+                      bod {cur.dist.toFixed(1)} km
+                    </div>
+                    <div style={{ fontSize: 26, fontWeight: 800, color: tip.color, lineHeight: 1.1 }}>
+                      {tip.value}<span style={{ fontSize: 13, marginLeft: 2 }}>{tip.unit}</span>
+                    </div>
+                    <div style={{ fontSize: 10.5, color: "#8a99b8", fontWeight: 600 }}>{tip.label}</div>
+                    {/* indikátor, ktorá zo 4 hodnôt je aktívna */}
+                    <div style={{ display: "flex", gap: 4, marginTop: 7 }}>
+                      {tips.map((_, i) => (
+                        <span key={i} style={{
+                          width: 5, height: 5, borderRadius: "50%",
+                          background: i === tipIdx ? tip.color : "#2a3550",
+                        }} />
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 10, color: "#6b7a99", fontWeight: 600 }}>
+                      {cur.dist.toFixed(1)} km
+                    </div>
+                    <div style={{ fontSize: 26, fontWeight: 800, color: colorFor(cur), lineHeight: 1.1 }}>
+                      {cur.power}<span style={{ fontSize: 13, marginLeft: 2 }}>W</span>
+                    </div>
+                    <div style={{ fontSize: 10.5, color: cur.zone ? cur.zone.color : "#6b7a99", fontWeight: 600 }}>
+                      {cur.zone ? cur.zone.label : "tep neznámy"}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* zbalený stav – malá ikonka v rohu, klikom sa rozbalí */
+            <button
+              onClick={() => setCornerOpen(true)}
+              title="Rozbaliť štítok"
+              style={{
+                position: "absolute", top: 16, right: 16, zIndex: 1000,
+                width: 30, height: 30, padding: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                background: "rgba(13,20,36,0.92)", border: "1px solid #1e2940",
+                borderRadius: 10, backdropFilter: "blur(8px)", color: "#8a99b8", cursor: "pointer",
+              }}
+            >
+              <ChevronLeft size={16} />
+            </button>
+          )}
         </div>
 
         {/* GRAPH (scrub) – prepínateľný: Výkon / Prevýšenie pozdĺž trasy */}
