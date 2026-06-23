@@ -142,6 +142,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const [mode, setMode] = useState("power"); // 'power' | 'zone' – farbenie mapy
   const [metric, setMetric] = useState("power"); // 'power' | 'ele' – veľký graf pozdĺž trasy
   const [idx, setIdx] = useState(0);
+  const [sliderVal, setSliderVal] = useState(0); // poloha thumbu (sleduje prst voľne)
   const [tipIdx, setTipIdx] = useState(0); // ktorá hodnota sa ukazuje v rohu mapy (len plán)
   const [fetchedEle, setFetchedEle] = useState(null); // výšky dotiahnuté online
   const [eleStatus, setEleStatus] = useState("idle"); // idle | loading | error
@@ -164,7 +165,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
     const mid = Math.floor(ride.length / 2);
     distPosRef.current = ride[mid].dist; targetDistRef.current = ride[mid].dist;
     targetIdxRef.current = mid; // zruš rozbehnutý glide
-    setIdx(mid);
+    setIdx(mid); setSliderVal(mid);
     // Pri pláne začni na „vzdialenosť do cieľa" (index 2) – je to jediná živá
     // hodnota, ktorá sa hneď mení s posunom bodu, takže používateľ rovno vidí,
     // že roh reaguje na polohu (celkové súčty #1/#2 sú zámerne konštantné).
@@ -213,9 +214,10 @@ export default function RideAnalysis({ imported, onClearImport }) {
     setIdx(idxForDist(distPosRef.current));
     rafRef.current = requestAnimationFrame(stepGlide);
   };
-  // Slajder: nastav cieľ a nechaj bod plynule (rovnomerne v km) dôjsť.
+  // Slajder: thumb ide hneď za prstom (voľný), bod ho dobieha rovnomerným tempom.
   const glideTo = (v) => {
     const idx = Math.max(0, Math.min(ride.length - 1, Math.round(v)));
+    setSliderVal(idx);                          // thumb sleduje prst priamo
     targetIdxRef.current = idx;
     targetDistRef.current = ride[idx].dist;
     lastInputRef.current = performance.now();   // slajder sa práve pohol
@@ -224,17 +226,18 @@ export default function RideAnalysis({ imported, onClearImport }) {
       rafRef.current = requestAnimationFrame(stepGlide);
     }
   };
-  // Pustenie slajdera → okamžite zastav bod tam, kde je (žiadny dobeh).
+  // Pustenie slajdera → zastav bod tam, kde je (žiadny dobeh) a zarovnaj naň thumb.
   const stopGlide = () => {
     if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
     targetDistRef.current = distPosRef.current;
+    setSliderVal(idxForDist(distPosRef.current));
   };
   // Priamy skok (klik do mapy, scrub grafu, šípky) – bez obmedzenia rýchlosti.
   const jumpTo = (v) => {
     if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
     const nv = Math.max(0, Math.min(ride.length - 1, Math.round(v)));
     distPosRef.current = ride[nv].dist; targetDistRef.current = ride[nv].dist;
-    targetIdxRef.current = nv; setIdx(nv);
+    targetIdxRef.current = nv; setIdx(nv); setSliderVal(nv);
   };
   useEffect(() => () => { if (rafRef.current != null) cancelAnimationFrame(rafRef.current); }, []);
 
@@ -634,7 +637,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
           )}
           {/* slajder ovláda celú trasu (0..koniec) – nezávisle od priblíženia mapy */}
           <input
-            type="range" min={0} max={ride.length - 1} value={cIdx}
+            type="range" min={0} max={ride.length - 1} value={sliderVal}
             onChange={(e) => glideTo(parseInt(e.target.value))}
             onPointerUp={stopGlide}
             onPointerCancel={stopGlide}
