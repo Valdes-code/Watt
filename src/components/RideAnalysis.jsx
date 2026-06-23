@@ -450,6 +450,8 @@ export default function RideAnalysis({ imported, onClearImport }) {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; OpenStreetMap'
                 maxZoom={19}
+                keepBuffer={4}
+                updateWhenIdle={false}
               />
               <MapClick latlngs={latlngs} onPick={jumpTo} />
               <MapViewport onChange={setMapBounds} />
