@@ -75,21 +75,18 @@ function powerColor(p, min, max) {
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
 
-// Mapou hýbeme LEN keď by aktívny bod vyšiel z viditeľnej časti (rezerva 20 %
-// od okraja). Kým je bod vnútri výrezu, mapa stojí – pri ťahaní slajdera teda
-// nelieta a dlaždice sa stíhajú. Keď sa bod priblíži k okraju, mapa sa naň
-// BEZ animácie okamžite prepne (animovaný posun by pri rýchlom scrube zaostával
-// a bod by „ušiel" mimo okno). Tak je bod vždy viditeľný a mapa neposkakuje
-// zbytočne. Pri pohľade na celú trasu necentrujeme; posúvame iba pri zmene bodu.
+// Plynulé sledovanie bodu: keď je mapa priblížená, držíme bod v strede a mapa
+// sa posúva po malých krokoch (bod ide rovnomerne) → dlaždice nabiehajú postupne
+// na nábežnej hrane namiesto skokových prázdnych miest = menej preblikávania.
+// Posúvame len pri zmene bodu (slajder/scrub/klik), nie pri ručnom posune mapy.
+// Pri pohľade na celú trasu necentrujeme (mapa stojí).
 function FollowMarker({ center, routeBounds }) {
   const map = useMap();
   const first = useRef(true);
   useEffect(() => {
     if (first.current) { first.current = false; return; }
-    if (map.getBounds().contains(routeBounds)) return;        // celá trasa vidno → necentruj
-    if (!map.getBounds().pad(-0.2).contains(center)) {        // bod blízko okraja → dorovnaj
-      map.panTo(center, { animate: false });
-    }
+    if (map.getBounds().contains(routeBounds)) return;   // celá trasa vidno → necentruj
+    map.panTo(center, { animate: false });               // drž bod v strede, plynulý posun
   }, [center[0], center[1]]);
   return null;
 }
