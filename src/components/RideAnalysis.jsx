@@ -443,10 +443,14 @@ export default function RideAnalysis({ imported, onClearImport }) {
               scrollWheelZoom
               attributionControl={false}
             >
+              {/* Carto Voyager – rýchle CDN dlaždice (menej preblikávania) s
+                  detailnými ulicami. Alternatívy: .../dark_all/... (tmavá, ladí
+                  s témou) alebo .../light_all/... (svetlá minimalistická). */}
               <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; OpenStreetMap'
-                maxZoom={19}
+                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                subdomains="abcd"
+                attribution='&copy; OpenStreetMap &copy; CARTO'
+                maxZoom={20}
                 keepBuffer={4}
                 updateWhenIdle={false}
               />
