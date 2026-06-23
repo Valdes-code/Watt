@@ -407,7 +407,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
             <MapContainer
               key={imported ? imported.name : "demo"}
               bounds={bounds}
-              maxZoom={16}
+              maxZoom={17}
               style={{ height: "100%", width: "100%", background: "#0d1424" }}
               scrollWheelZoom
               attributionControl={false}
