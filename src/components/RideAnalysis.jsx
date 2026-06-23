@@ -147,11 +147,13 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const [eleStatus, setEleStatus] = useState("idle"); // idle | loading | error
   const [mapBounds, setMapBounds] = useState(null); // výrez mapy (pri priblížení)
   const graphRef = useRef();
-  // „Glide" posúvanie bodu: slajder nastaví cieľ, bod sa k nemu posúva najviac
-  // obmedzenou rýchlosťou (nedá sa myknúť rýchlo) → mapa ho aj pri väčšom zoome
-  // stíha plynulo sledovať. Klik do mapy / scrub grafu / šípky skáču priamo.
-  const posRef = useRef(0);     // plynulá (float) pozícia bodu
-  const targetRef = useRef(0);  // cieľový index (kam ťaháš slajder)
+  // „Glide" posúvanie bodu konštantnou rýchlosťou v KILOMETROCH po trase – takže
+  // bod ide po mape rovnomerne aj keď sú GPS body nerovnomerne husté. Slajder
+  // nastaví cieľ, bod sa k nemu plynule (obmedzene rýchlo) dostane. Klik do mapy
+  // / scrub grafu / šípky skáču priamo (bez obmedzenia).
+  const distPosRef = useRef(0);    // plynulá pozícia bodu po trase [km]
+  const targetDistRef = useRef(0); // cieľová vzdialenosť [km]
+  const targetIdxRef = useRef(0);  // cieľový index (presné dorazenie)
   const rafRef = useRef(null);
   const lastTsRef = useRef(0);
 
@@ -159,7 +161,8 @@ export default function RideAnalysis({ imported, onClearImport }) {
   // aj výrez mapy (graf zobrazí celú trasu).
   useEffect(() => {
     const mid = Math.floor(ride.length / 2);
-    posRef.current = mid; targetRef.current = mid; // zruš rozbehnutý glide
+    distPosRef.current = ride[mid].dist; targetDistRef.current = ride[mid].dist;
+    targetIdxRef.current = mid; // zruš rozbehnutý glide
     setIdx(mid);
     // Pri pláne začni na „vzdialenosť do cieľa" (index 2) – je to jediná živá
     // hodnota, ktorá sa hneď mení s posunom bodu, takže používateľ rovno vidí,
@@ -175,25 +178,39 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const cIdx = Math.max(0, Math.min(idx, ride.length - 1));
   const cur = ride[cIdx];
 
-  // Tempo „glide" – koľko bodov trasy za sekundu prejde bod pri ťahaní slajdera.
-  // Nižšie = pokojnejšie (mapa sa pri väčšom zoome pohybuje pomalšie).
-  const GLIDE_RATE = 12;
+  // Tempo „glide" v KILOMETROCH za sekundu – konštantná rýchlosť po trase, takže
+  // bod ide po mape rovnomerne. Nižšie = pokojnejšie.
+  const GLIDE_KMS = 7;
+  // Najbližší index k danej vzdialenosti (ride[i].dist je rastúce → bin. hľadanie).
+  const idxForDist = (d) => {
+    const last = ride.length - 1;
+    if (d <= ride[0].dist) return 0;
+    if (d >= ride[last].dist) return last;
+    let lo = 0, hi = last;
+    while (lo < hi) {
+      const m = (lo + hi) >> 1;
+      if (ride[m].dist < d) lo = m + 1; else hi = m;
+    }
+    return (lo > 0 && d - ride[lo - 1].dist < ride[lo].dist - d) ? lo - 1 : lo;
+  };
   const stepGlide = (ts) => {
     const dt = Math.min(80, ts - lastTsRef.current);
     lastTsRef.current = ts;
-    const t = targetRef.current;
-    const diff = t - posRef.current;
-    const stepF = (GLIDE_RATE * dt) / 1000;
-    if (Math.abs(diff) <= stepF) {        // dorazili sme na cieľ
-      posRef.current = t; setIdx(t); rafRef.current = null; return;
+    const t = targetDistRef.current;
+    const diff = t - distPosRef.current;
+    const stepKm = (GLIDE_KMS * dt) / 1000;
+    if (Math.abs(diff) <= stepKm) {        // dorazili sme na cieľ
+      distPosRef.current = t; setIdx(targetIdxRef.current); rafRef.current = null; return;
     }
-    posRef.current += Math.sign(diff) * stepF;
-    setIdx(Math.round(posRef.current));
+    distPosRef.current += Math.sign(diff) * stepKm;
+    setIdx(idxForDist(distPosRef.current));
     rafRef.current = requestAnimationFrame(stepGlide);
   };
-  // Slajder: nastav cieľ a nechaj bod plynule (obmedzene rýchlo) dôjsť.
+  // Slajder: nastav cieľ a nechaj bod plynule (rovnomerne v km) dôjsť.
   const glideTo = (v) => {
-    targetRef.current = Math.max(0, Math.min(ride.length - 1, Math.round(v)));
+    const idx = Math.max(0, Math.min(ride.length - 1, Math.round(v)));
+    targetIdxRef.current = idx;
+    targetDistRef.current = ride[idx].dist;
     if (rafRef.current == null) {
       lastTsRef.current = performance.now();
       rafRef.current = requestAnimationFrame(stepGlide);
@@ -203,7 +220,8 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const jumpTo = (v) => {
     if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
     const nv = Math.max(0, Math.min(ride.length - 1, Math.round(v)));
-    posRef.current = nv; targetRef.current = nv; setIdx(nv);
+    distPosRef.current = ride[nv].dist; targetDistRef.current = ride[nv].dist;
+    targetIdxRef.current = nv; setIdx(nv);
   };
   useEffect(() => () => { if (rafRef.current != null) cancelAnimationFrame(rafRef.current); }, []);
 
