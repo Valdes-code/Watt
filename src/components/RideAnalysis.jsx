@@ -451,7 +451,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
                 subdomains="abcd"
                 attribution='&copy; OpenStreetMap &copy; CARTO'
                 maxZoom={20}
-                keepBuffer={4}
+                keepBuffer={8}
                 updateWhenIdle={false}
               />
               <MapClick latlngs={latlngs} onPick={jumpTo} />
