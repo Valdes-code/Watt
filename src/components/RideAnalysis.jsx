@@ -147,11 +147,20 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const [eleStatus, setEleStatus] = useState("idle"); // idle | loading | error
   const [mapBounds, setMapBounds] = useState(null); // výrez mapy (pri priblížení)
   const graphRef = useRef();
+  // „Glide" posúvanie bodu: slajder nastaví cieľ, bod sa k nemu posúva najviac
+  // obmedzenou rýchlosťou (nedá sa myknúť rýchlo) → mapa ho aj pri väčšom zoome
+  // stíha plynulo sledovať. Klik do mapy / scrub grafu / šípky skáču priamo.
+  const posRef = useRef(0);     // plynulá (float) pozícia bodu
+  const targetRef = useRef(0);  // cieľový index (kam ťaháš slajder)
+  const rafRef = useRef(null);
+  const lastTsRef = useRef(0);
 
   // Pri zmene zdroja (import ↔ demo) skoč na stred trasy, zahoď dotiahnuté výšky
   // aj výrez mapy (graf zobrazí celú trasu).
   useEffect(() => {
-    setIdx(Math.floor(ride.length / 2));
+    const mid = Math.floor(ride.length / 2);
+    posRef.current = mid; targetRef.current = mid; // zruš rozbehnutý glide
+    setIdx(mid);
     // Pri pláne začni na „vzdialenosť do cieľa" (index 2) – je to jediná živá
     // hodnota, ktorá sa hneď mení s posunom bodu, takže používateľ rovno vidí,
     // že roh reaguje na polohu (celkové súčty #1/#2 sú zámerne konštantné).
@@ -165,6 +174,38 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const minP = Math.min(...powers), maxP = Math.max(...powers);
   const cIdx = Math.max(0, Math.min(idx, ride.length - 1));
   const cur = ride[cIdx];
+
+  // Tempo „glide" – koľko bodov trasy za sekundu prejde bod pri ťahaní slajdera.
+  // Nižšie = pokojnejšie (mapa sa pri väčšom zoome pohybuje pomalšie).
+  const GLIDE_RATE = 12;
+  const stepGlide = (ts) => {
+    const dt = Math.min(80, ts - lastTsRef.current);
+    lastTsRef.current = ts;
+    const t = targetRef.current;
+    const diff = t - posRef.current;
+    const stepF = (GLIDE_RATE * dt) / 1000;
+    if (Math.abs(diff) <= stepF) {        // dorazili sme na cieľ
+      posRef.current = t; setIdx(t); rafRef.current = null; return;
+    }
+    posRef.current += Math.sign(diff) * stepF;
+    setIdx(Math.round(posRef.current));
+    rafRef.current = requestAnimationFrame(stepGlide);
+  };
+  // Slajder: nastav cieľ a nechaj bod plynule (obmedzene rýchlo) dôjsť.
+  const glideTo = (v) => {
+    targetRef.current = Math.max(0, Math.min(ride.length - 1, Math.round(v)));
+    if (rafRef.current == null) {
+      lastTsRef.current = performance.now();
+      rafRef.current = requestAnimationFrame(stepGlide);
+    }
+  };
+  // Priamy skok (klik do mapy, scrub grafu, šípky) – bez obmedzenia rýchlosti.
+  const jumpTo = (v) => {
+    if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    const nv = Math.max(0, Math.min(ride.length - 1, Math.round(v)));
+    posRef.current = nv; targetRef.current = nv; setIdx(nv);
+  };
+  useEffect(() => () => { if (rafRef.current != null) cancelAnimationFrame(rafRef.current); }, []);
 
   const hasZones = ride.some((p) => p.zone);
   const colorFor = (p) =>
@@ -272,7 +313,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
   // Scrub na grafe/profile → najbližší bod podľa vzdialenosti (rovnaká os km).
   const scrub = (e, ref) => {
     const rect = ref.current.getBoundingClientRect();
-    setIdx(idxAtRel((e.clientX - rect.left) / rect.width));
+    jumpTo(idxAtRel((e.clientX - rect.left) / rect.width));
   };
   const handleGraph = (e) => scrub(e, graphRef);
 
@@ -366,7 +407,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
             <MapContainer
               key={imported ? imported.name : "demo"}
               bounds={bounds}
-              maxZoom={11}
+              maxZoom={16}
               style={{ height: "100%", width: "100%", background: "#0d1424" }}
               scrollWheelZoom
               attributionControl={false}
@@ -374,10 +415,10 @@ export default function RideAnalysis({ imported, onClearImport }) {
               <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; OpenStreetMap'
-                maxZoom={11}
+                maxZoom={16}
                 detectRetina
               />
-              <MapClick latlngs={latlngs} onPick={setIdx} />
+              <MapClick latlngs={latlngs} onPick={jumpTo} />
               <MapViewport onChange={setMapBounds} />
               <FollowMarker center={latlngs[cIdx]} routeBounds={bounds} />
 
@@ -564,7 +605,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
           {/* slajder ovláda celú trasu (0..koniec) – nezávisle od priblíženia mapy */}
           <input
             type="range" min={0} max={ride.length - 1} value={cIdx}
-            onChange={(e) => setIdx(parseInt(e.target.value))}
+            onChange={(e) => glideTo(parseInt(e.target.value))}
             style={{ width: "100%", marginTop: 10, accentColor: "#ff8a3d", cursor: "pointer" }}
           />
         </div>
@@ -589,7 +630,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
           background: "#101725", border: "1px solid #1e2940",
           borderRadius: 14, padding: "10px 12px",
         }}>
-          <button onClick={() => setIdx((i) => Math.max(0, i - 1))} style={navBtn}>
+          <button onClick={() => jumpTo(cIdx - 1)} style={navBtn}>
             <ChevronLeft size={18} />
           </button>
           <div style={{ flex: 1, textAlign: "center" }}>
@@ -600,7 +641,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
               bod {cIdx + 1} / {ride.length}
             </div>
           </div>
-          <button onClick={() => setIdx((i) => Math.min(ride.length - 1, i + 1))} style={navBtn}>
+          <button onClick={() => jumpTo(cIdx + 1)} style={navBtn}>
             <ChevronRight size={18} />
           </button>
         </div>
