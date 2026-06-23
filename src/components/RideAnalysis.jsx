@@ -156,6 +156,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const targetIdxRef = useRef(0);  // cieľový index (presné dorazenie)
   const rafRef = useRef(null);
   const lastTsRef = useRef(0);
+  const lastInputRef = useRef(0);  // čas posledného pohybu slajdera [ms]
 
   // Pri zmene zdroja (import ↔ demo) skoč na stred trasy, zahoď dotiahnuté výšky
   // aj výrez mapy (graf zobrazí celú trasu).
@@ -193,9 +194,15 @@ export default function RideAnalysis({ imported, onClearImport }) {
     }
     return (lo > 0 && d - ride[lo - 1].dist < ride[lo].dist - d) ? lo - 1 : lo;
   };
+  // Keď slajder dlhšie ako STOP_MS nepohol, bod ZASTAVÍME tam, kde je (žiadny
+  // dobeh do cieľa) – bod sa hýbe len kým hýbeš slajderom.
+  const STOP_MS = 90;
   const stepGlide = (ts) => {
     const dt = Math.min(80, ts - lastTsRef.current);
     lastTsRef.current = ts;
+    if (ts - lastInputRef.current > STOP_MS) {   // slajder stojí → zastav bez dobehu
+      targetDistRef.current = distPosRef.current; rafRef.current = null; return;
+    }
     const t = targetDistRef.current;
     const diff = t - distPosRef.current;
     const stepKm = (GLIDE_KMS * dt) / 1000;
@@ -211,10 +218,16 @@ export default function RideAnalysis({ imported, onClearImport }) {
     const idx = Math.max(0, Math.min(ride.length - 1, Math.round(v)));
     targetIdxRef.current = idx;
     targetDistRef.current = ride[idx].dist;
+    lastInputRef.current = performance.now();   // slajder sa práve pohol
     if (rafRef.current == null) {
       lastTsRef.current = performance.now();
       rafRef.current = requestAnimationFrame(stepGlide);
     }
+  };
+  // Pustenie slajdera → okamžite zastav bod tam, kde je (žiadny dobeh).
+  const stopGlide = () => {
+    if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    targetDistRef.current = distPosRef.current;
   };
   // Priamy skok (klik do mapy, scrub grafu, šípky) – bez obmedzenia rýchlosti.
   const jumpTo = (v) => {
@@ -623,6 +636,10 @@ export default function RideAnalysis({ imported, onClearImport }) {
           <input
             type="range" min={0} max={ride.length - 1} value={cIdx}
             onChange={(e) => glideTo(parseInt(e.target.value))}
+            onPointerUp={stopGlide}
+            onPointerCancel={stopGlide}
+            onMouseUp={stopGlide}
+            onTouchEnd={stopGlide}
             style={{ width: "100%", marginTop: 10, accentColor: "#ff8a3d", cursor: "pointer" }}
           />
         </div>
