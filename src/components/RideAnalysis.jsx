@@ -223,7 +223,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
   // preblikávania). keepBuffer nie je reaktívny prop, tak ho nastavíme na vrstve.
   useEffect(() => {
     const tl = tileRef.current;
-    if (tl) tl.options.keepBuffer = mapFull ? 16 : 8;
+    if (tl) tl.options.keepBuffer = mapFull ? 24 : 8;
   }, [mapFull]);
 
   const powers = ride.map((p) => p.power);
