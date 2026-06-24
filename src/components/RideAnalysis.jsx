@@ -644,6 +644,32 @@ export default function RideAnalysis({ imported, onClearImport }) {
               )}
             </div>
           )}
+
+          {/* na celej obrazovke je hlavný slajder schovaný → pridáme ho na spodnú hranu mapy */}
+          {mapFull && (
+            <div style={{
+              position: "absolute", left: 16, right: 16, bottom: 16, zIndex: 1200,
+              background: "rgba(13,20,36,0.88)", border: "1px solid #1e2940",
+              borderRadius: 14, padding: "11px 16px", backdropFilter: "blur(8px)",
+              display: "flex", alignItems: "center", gap: 12,
+            }}>
+              <span style={{ fontSize: 12, color: "#7fb0ff", fontWeight: 700, minWidth: 58 }}>
+                {cur.dist.toFixed(1)} km
+              </span>
+              <input
+                type="range" min={0} max={ride.length - 1} value={sliderVal}
+                onChange={(e) => glideTo(parseInt(e.target.value))}
+                onPointerUp={stopGlide}
+                onPointerCancel={stopGlide}
+                onMouseUp={stopGlide}
+                onTouchEnd={stopGlide}
+                style={{ flex: 1, accentColor: "#ff8a3d", cursor: "pointer", touchAction: "none" }}
+              />
+              <span style={{ fontSize: 12, color: "#8a99b8", fontWeight: 700, minWidth: 50, textAlign: "right" }}>
+                {totalDist.toFixed(1)} km
+              </span>
+            </div>
+          )}
         </div>
 
         {/* GRAPH (scrub) – prepínateľný: Výkon / Prevýšenie pozdĺž trasy */}
