@@ -1,7 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Upload, Check, MapPin, Zap, Mountain, AlertCircle, Clock, X } from "lucide-react";
 import { importGpx } from "../lib/gpx.js";
-import { SAMPLE_GPX } from "../lib/sampleGpx.js";
+// Zabudovaná ukážková trasa (reálne GPX z mapy.com – okolie Karvinej).
+import karvinaGpx from "../lib/samples/karvina.gpx?raw";
+
+const DEMO = { name: "Karvina.gpx", gpx: karvinaGpx };
 
 // História importov v localStorage (uchová raw GPX, aby sa dala trasa znova načítať).
 const HKEY = "watt_gpx_history";
@@ -12,13 +15,6 @@ const loadHistory = () => {
 const saveHistory = (arr) => {
   try { localStorage.setItem(HKEY, JSON.stringify(arr)); } catch { /* plný/zakázaný storage */ }
 };
-
-const SAMPLE_FILES = [
-  { name: "Morning_Ride.gpx", source: "Strava", gpx: SAMPLE_GPX.morning },
-  { name: "Activity_2026.gpx", source: "Garmin", gpx: SAMPLE_GPX.garmin },
-  { name: "Vikendovy_okruh.gpx", source: "Plánovaná trasa", gpx: SAMPLE_GPX.route },
-  { name: "Tatry_climb.fit", source: "Garmin FIT", unsupported: true },
-];
 
 export default function GpxImport({ onImported }) {
   const [status, setStatus] = useState("idle");
@@ -76,17 +72,6 @@ export default function GpxImport({ onImported }) {
     }, 400);
   };
 
-  // Klik na ukážkový súbor
-  const importFile = (file) => {
-    if (file.unsupported) {
-      setError(null);
-      setStatus("error");
-      setResult(null);
-      return;
-    }
-    parseText(file.name, file.gpx);
-  };
-
   // Skutočný výber súboru zo zariadenia
   const onPick = (e) => {
     const file = e.target.files?.[0];
@@ -140,7 +125,7 @@ export default function GpxImport({ onImported }) {
             <div style={{ fontSize: 11.5, color: "#6b7a99", marginTop: 6, lineHeight: 1.5 }}>
               Načítaj GPX súbor hore, alebo{" "}
               <span
-                onClick={() => importFile(SAMPLE_FILES.find((f) => f.source === "Plánovaná trasa"))}
+                onClick={() => parseText(DEMO.name, DEMO.gpx)}
                 style={{ color: "#7fb0ff", fontWeight: 700, cursor: "pointer" }}
               >skús ukážkovú trasu</span>.
             </div>
