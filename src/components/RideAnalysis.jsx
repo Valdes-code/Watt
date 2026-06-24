@@ -186,6 +186,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const dragRef = useRef(null);      // stav ťahania
   const livePosRef = useRef(null);   // aktuálna poloha štítku počas ťahania
   const preDockRef = useRef(null);   // poloha pred zrolovaním (na obnovenie)
+  const tileRef = useRef(null);      // Leaflet TileLayer (na dynamický keepBuffer)
   const [fetchedEle, setFetchedEle] = useState(null); // výšky dotiahnuté online
   const [eleStatus, setEleStatus] = useState("idle"); // idle | loading | error
   const [mapBounds, setMapBounds] = useState(null); // výrez mapy (pri priblížení)
@@ -217,6 +218,13 @@ export default function RideAnalysis({ imported, onClearImport }) {
     setMapBounds(null);
     setBoxPos(null); setDocked(null); // štítok späť do pravého horného rohu
   }, [ride, imported]);
+
+  // Na celej obrazovke je mapa väčšia → drž viac dlaždíc okolo výrezu (menej
+  // preblikávania). keepBuffer nie je reaktívny prop, tak ho nastavíme na vrstve.
+  useEffect(() => {
+    const tl = tileRef.current;
+    if (tl) tl.options.keepBuffer = mapFull ? 16 : 8;
+  }, [mapFull]);
 
   const powers = ride.map((p) => p.power);
   const minP = Math.min(...powers), maxP = Math.max(...powers);
@@ -539,6 +547,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
                   detailnými ulicami. Alternatívy: .../dark_all/... (tmavá, ladí
                   s témou) alebo .../light_all/... (svetlá minimalistická). */}
               <TileLayer
+                ref={tileRef}
                 url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
                 subdomains="abcd"
                 attribution='&copy; OpenStreetMap &copy; CARTO'
