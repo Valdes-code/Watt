@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import CycloWattPreview from "./components/CycloWattPreview.jsx";
 import RideAnalysis from "./components/RideAnalysis.jsx";
 import GpxImport from "./components/GpxImport.jsx";
 import PoseDetectionDemo from "./components/PoseDetectionDemo.jsx";
+import { importGpx } from "./lib/gpx.js";
 
 const VIEWS = {
   preview: { label: "Appka", Component: CycloWattPreview },
@@ -14,6 +15,18 @@ const VIEWS = {
 export default function App() {
   const [view, setView] = useState("gpx");
   const [imported, setImported] = useState(null); // { name, ...analyzeRide() }
+
+  // „Analýza jazdy" má vždy poslednú importovanú trasu: pri štarte ju načítame
+  // z histórie importov (localStorage), takže prežije reload aj prepnutie záložiek.
+  useEffect(() => {
+    try {
+      const hist = JSON.parse(localStorage.getItem("watt_gpx_history")) || [];
+      if (hist[0]?.gpx) {
+        const ride = importGpx(hist[0].gpx);
+        setImported({ name: hist[0].name, ...ride });
+      }
+    } catch { /* žiadna/poškodená história → ostane demo */ }
+  }, []);
 
   // GpxImport zavolá po úspešnom načítaní – uložíme jazdu a prepneme na mapu.
   const handleImported = (name, ride) => {
