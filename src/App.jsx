@@ -15,6 +15,7 @@ const VIEWS = {
 export default function App() {
   const [view, setView] = useState("gpx");
   const [imported, setImported] = useState(null); // { name, ...analyzeRide() }
+  const [activeGpx, setActiveGpx] = useState(null); // GPX práve aktívnej trasy (na zvýraznenie v histórii)
 
   // „Analýza jazdy" má vždy poslednú importovanú trasu: pri štarte ju načítame
   // z histórie importov (localStorage), takže prežije reload aj prepnutie záložiek.
@@ -24,20 +25,22 @@ export default function App() {
       if (hist[0]?.gpx) {
         const ride = importGpx(hist[0].gpx);
         setImported({ name: hist[0].name, ...ride });
+        setActiveGpx(hist[0].gpx);
       }
     } catch { /* žiadna/poškodená história → ostane demo */ }
   }, []);
 
   // GpxImport zavolá po úspešnom načítaní – uložíme jazdu a prepneme na mapu.
-  const handleImported = (name, ride) => {
+  const handleImported = (name, ride, gpx) => {
     setImported({ name, ...ride });
+    setActiveGpx(gpx ?? null);
     setView("ride");
   };
   const clearImport = () => setImported(null);
 
   const renderActive = () => {
     if (view === "ride") return <RideAnalysis imported={imported} onClearImport={clearImport} />;
-    if (view === "gpx") return <GpxImport onImported={handleImported} />;
+    if (view === "gpx") return <GpxImport onImported={handleImported} activeGpx={activeGpx} />;
     if (view === "pose") return <PoseDetectionDemo />;
     return <CycloWattPreview />;
   };

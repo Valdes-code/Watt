@@ -16,7 +16,7 @@ const saveHistory = (arr) => {
   try { localStorage.setItem(HKEY, JSON.stringify(arr)); } catch { /* plný/zakázaný storage */ }
 };
 
-export default function GpxImport({ onImported }) {
+export default function GpxImport({ onImported, activeGpx }) {
   const [status, setStatus] = useState("idle");
   const [result, setResult] = useState(null);
   const [fullRide, setFullRide] = useState(null); // celý výstup analyzeRide (vč. track)
@@ -62,7 +62,7 @@ export default function GpxImport({ onImported }) {
       try {
         const ride = importGpx(text);
         setResult(toResult(name, ride));
-        setFullRide({ name, ride });
+        setFullRide({ name, ride, gpx: text });
         setStatus("done");
         pushHistory(name, text, ride);
       } catch (e) {
@@ -131,16 +131,25 @@ export default function GpxImport({ onImported }) {
             </div>
           </div>
         ) : (
-          history.map((e) => (
-            <div key={e.id} onClick={() => parseText(e.name, e.gpx)} style={{
-              display: "flex", alignItems: "center", gap: 12, background: "#101725",
-              border: "1px solid #1e2940", borderRadius: 12, padding: 12, marginBottom: 9, cursor: "pointer",
+          history.map((e) => {
+            const active = e.gpx === activeGpx;
+            return (
+            <div key={e.id} onClick={() => parseText(e.name, e.gpx)} title={active ? "Práve zobrazená v Analýze jazdy" : undefined} style={{
+              display: "flex", alignItems: "center", gap: 12,
+              background: active ? "rgba(255,213,74,0.08)" : "#101725",
+              border: active ? "1px solid #ffd54a" : "1px solid #1e2940",
+              borderRadius: 12, padding: 12, marginBottom: 9, cursor: "pointer",
             }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: "#7fb0ff14", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Clock size={16} color="#7fb0ff" />
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: active ? "rgba(255,213,74,0.15)" : "#7fb0ff14", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Clock size={16} color={active ? "#ffd54a" : "#7fb0ff"} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</span>
+                  {active && (
+                    <span style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: 0.4, color: "#ffd54a", background: "rgba(255,213,74,0.15)", borderRadius: 6, padding: "2px 6px", whiteSpace: "nowrap" }}>AKTÍVNA</span>
+                  )}
+                </div>
                 <div style={{ fontSize: 10.5, color: "#6b7a99" }}>
                   {new Date(e.ts).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} · {e.dist.toFixed(1)} km{e.planned ? " · plán" : ""}
                 </div>
@@ -153,7 +162,8 @@ export default function GpxImport({ onImported }) {
                 <X size={15} />
               </button>
             </div>
-          ))
+            );
+          })
         )}
 
         {/* Loading */}
@@ -204,7 +214,7 @@ export default function GpxImport({ onImported }) {
                   : "✓ výkon dopočítaný z trasy"}
             </div>
             <button
-              onClick={() => fullRide && onImported?.(fullRide.name, fullRide.ride)}
+              onClick={() => fullRide && onImported?.(fullRide.name, fullRide.ride, fullRide.gpx)}
               style={{
                 width: "100%", marginTop: 14, background: "#ffd54a", border: "none",
                 borderRadius: 12, padding: 13, cursor: "pointer", fontSize: 13.5, fontWeight: 800,
@@ -217,7 +227,7 @@ export default function GpxImport({ onImported }) {
         )}
 
         <p style={{ fontSize: 11, color: "#5d6b88", textAlign: "center", marginTop: 20, lineHeight: 1.5 }}>
-          Skús ukážkové súbory hore. GPX z Garmin/Strava obsahuje výkon, zo Stravy sa dopočíta. 🚴
+          Načítaj GPX z Garmin / Strava / komoot / mapy.com. Ak chýba výkon, appka ho dopočíta z trasy. 🚴
         </p>
       </div>
     </div>
