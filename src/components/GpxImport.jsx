@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Upload, FileText, Check, MapPin, Zap, Mountain, AlertCircle, ChevronRight } from "lucide-react";
 import { importGpx } from "../lib/gpx.js";
 import { SAMPLE_GPX } from "../lib/sampleGpx.js";
@@ -16,6 +16,14 @@ export default function GpxImport({ onImported }) {
   const [fullRide, setFullRide] = useState(null); // celý výstup analyzeRide (vč. track)
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
+  const doneRef = useRef(null);
+
+  // Po úspešnom načítaní odroluj na panel „Trasa pripravená", nech ho netreba hľadať.
+  useEffect(() => {
+    if (status === "done") {
+      doneRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [status]);
 
   // Z výstupu analyzeRide() spraví tvar, ktorý zobrazuje "done" panel nižšie.
   const toResult = (name, ride) => ({
@@ -141,7 +149,7 @@ export default function GpxImport({ onImported }) {
 
         {/* Done */}
         {status === "done" && result && (
-          <div style={{ background: "#4ade801a", border: "1px solid #4ade8055", borderRadius: 14, padding: 16, marginTop: 16 }}>
+          <div ref={doneRef} style={{ background: "#4ade801a", border: "1px solid #4ade8055", borderRadius: 14, padding: 16, marginTop: 16, scrollMarginTop: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
               <Check size={16} color="#4ade80" />
               <span style={{ fontSize: 14, fontWeight: 800, color: "#4ade80" }}>
