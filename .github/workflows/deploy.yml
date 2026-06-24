@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - claude/test-coverage-analysis-w94vw5
   workflow_dispatch:
 
 # Práva potrebné na publikovanie na GitHub Pages.
