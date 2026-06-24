@@ -1,7 +1,17 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Upload, FileText, Check, MapPin, Zap, Mountain, AlertCircle, ChevronRight } from "lucide-react";
+import { Upload, FileText, Check, MapPin, Zap, Mountain, AlertCircle, ChevronRight, Clock, X } from "lucide-react";
 import { importGpx } from "../lib/gpx.js";
 import { SAMPLE_GPX } from "../lib/sampleGpx.js";
+
+// História importov v localStorage (uchová raw GPX, aby sa dala trasa znova načítať).
+const HKEY = "watt_gpx_history";
+const HMAX = 8;
+const loadHistory = () => {
+  try { return JSON.parse(localStorage.getItem(HKEY)) || []; } catch { return []; }
+};
+const saveHistory = (arr) => {
+  try { localStorage.setItem(HKEY, JSON.stringify(arr)); } catch { /* plný/zakázaný storage */ }
+};
 
 const SAMPLE_FILES = [
   { name: "Morning_Ride.gpx", source: "Strava", gpx: SAMPLE_GPX.morning },
@@ -17,6 +27,18 @@ export default function GpxImport({ onImported }) {
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
   const doneRef = useRef(null);
+  const [history, setHistory] = useState(loadHistory);
+
+  // Pridaj/posuň trasu na vrchol histórie (dedup podľa obsahu GPX, max HMAX).
+  const pushHistory = (name, text, ride) => {
+    const entry = { id: String(Date.now()), name, dist: ride.distanceKm, planned: !!ride.planned, ts: Date.now(), gpx: text };
+    setHistory((h) => {
+      const next = [entry, ...h.filter((e) => e.gpx !== text)].slice(0, HMAX);
+      saveHistory(next);
+      return next;
+    });
+  };
+  const removeHistory = (id) => setHistory((h) => { const next = h.filter((e) => e.id !== id); saveHistory(next); return next; });
 
   // Po úspešnom načítaní odroluj na panel „Trasa pripravená", nech ho netreba hľadať.
   useEffect(() => {
@@ -46,6 +68,7 @@ export default function GpxImport({ onImported }) {
         setResult(toResult(name, ride));
         setFullRide({ name, ride });
         setStatus("done");
+        pushHistory(name, text, ride);
       } catch (e) {
         setError(e.message);
         setStatus("error");
@@ -121,6 +144,42 @@ export default function GpxImport({ onImported }) {
             <ChevronRight size={18} color="#6b7a99" />
           </div>
         ))}
+
+        {/* História importov */}
+        {history.length > 0 && (
+          <>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 20, marginBottom: 10 }}>
+              <span style={{ fontSize: 10.5, fontWeight: 700, color: "#8a99b8", letterSpacing: 0.5 }}>HISTÓRIA IMPORTOV</span>
+              <span
+                onClick={() => { setHistory([]); saveHistory([]); }}
+                style={{ fontSize: 10.5, fontWeight: 700, color: "#6b7a99", cursor: "pointer" }}
+              >Vymazať</span>
+            </div>
+            {history.map((e) => (
+              <div key={e.id} onClick={() => parseText(e.name, e.gpx)} style={{
+                display: "flex", alignItems: "center", gap: 12, background: "#101725",
+                border: "1px solid #1e2940", borderRadius: 12, padding: 12, marginBottom: 9, cursor: "pointer",
+              }}>
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: "#7fb0ff14", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Clock size={16} color="#7fb0ff" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</div>
+                  <div style={{ fontSize: 10.5, color: "#6b7a99" }}>
+                    {new Date(e.ts).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} · {e.dist.toFixed(1)} km{e.planned ? " · plán" : ""}
+                  </div>
+                </div>
+                <button
+                  onClick={(ev) => { ev.stopPropagation(); removeHistory(e.id); }}
+                  title="Odstrániť z histórie"
+                  style={{ background: "transparent", border: "none", color: "#6b7a99", cursor: "pointer", padding: 4, display: "flex" }}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            ))}
+          </>
+        )}
 
         {/* Loading */}
         {status === "loading" && (
