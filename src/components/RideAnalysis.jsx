@@ -117,6 +117,43 @@ function MapClick({ latlngs, onPick }) {
   return null;
 }
 
+// Ikonky (SVG) pre tlačidlo celej obrazovky – ladia s Leaflet ovládačmi (čierne na bielom).
+const EXPAND_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+const SHRINK_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
+
+// Tlačidlo „mapa na celú obrazovku" – Leaflet ovládač v topleft, ktorý sa
+// automaticky zaradí POD zoom +/−.
+function FullscreenControl({ full, setFull }) {
+  const map = useMap();
+  useEffect(() => {
+    const ctl = L.control({ position: "topleft" });
+    ctl.onAdd = () => {
+      const div = L.DomUtil.create("div", "leaflet-bar");
+      const a = L.DomUtil.create("a", "", div);
+      a.href = "#";
+      a.title = full ? "Zmenšiť mapu" : "Mapa na celú obrazovku";
+      a.style.cssText = "display:flex;align-items:center;justify-content:center;";
+      a.innerHTML = full ? SHRINK_SVG : EXPAND_SVG;
+      L.DomEvent.disableClickPropagation(div);
+      L.DomEvent.on(a, "click", (e) => { L.DomEvent.preventDefault(e); setFull((v) => !v); });
+      return div;
+    };
+    ctl.addTo(map);
+    return () => ctl.remove();
+  }, [map, full, setFull]);
+  return null;
+}
+
+// Po zmene veľkosti mapy (vstup/výstup z celej obrazovky) oznám Leafletu nový rozmer.
+function MapResizer({ trigger }) {
+  const map = useMap();
+  useEffect(() => {
+    const t = setTimeout(() => map.invalidateSize(), 60);
+    return () => clearTimeout(t);
+  }, [trigger, map]);
+  return null;
+}
+
 export default function RideAnalysis({ imported, onClearImport }) {
   // Jednotná trasa: buď reálna importovaná (z GPX), alebo syntetické demo.
   const ride = useMemo(() => {
@@ -143,6 +180,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const [tipIdx, setTipIdx] = useState(0); // ktorá hodnota sa ukazuje v rohu mapy (len plán)
   const [boxPos, setBoxPos] = useState(null);  // {x,y} px štítku v mape (null = vpravo hore)
   const [docked, setDocked] = useState(null);  // null | 'left'|'right'|'top'|'bottom' (zrolovaný k okraju)
+  const [mapFull, setMapFull] = useState(false); // mapa na celú obrazovku
   const mapWrapRef = useRef(null);   // obal mapy (hranice pre ťahanie)
   const boxRef = useRef(null);       // element štítku
   const dragRef = useRef(null);      // stav ťahania
@@ -483,10 +521,12 @@ export default function RideAnalysis({ imported, onClearImport }) {
 
         {/* MAP (Leaflet + OpenStreetMap) */}
         <div ref={mapWrapRef} style={{
-          background: "#0d1424", border: "1px solid #1e2940",
-          borderRadius: 18, padding: 6, marginBottom: 12, position: "relative",
+          background: "#0d1424",
+          ...(mapFull
+            ? { position: "fixed", inset: 0, zIndex: 2000, padding: 0, margin: 0, borderRadius: 0, border: "none" }
+            : { position: "relative", border: "1px solid #1e2940", borderRadius: 18, padding: 6, marginBottom: 12 }),
         }}>
-          <div style={{ height: 300, borderRadius: 14, overflow: "hidden" }}>
+          <div style={{ height: mapFull ? "100%" : 300, borderRadius: mapFull ? 0 : 14, overflow: "hidden" }}>
             <MapContainer
               key={imported ? imported.name : "demo"}
               bounds={bounds}
@@ -506,6 +546,8 @@ export default function RideAnalysis({ imported, onClearImport }) {
                 keepBuffer={8}
                 updateWhenIdle={false}
               />
+              <FullscreenControl full={mapFull} setFull={setMapFull} />
+              <MapResizer trigger={mapFull} />
               <MapClick latlngs={latlngs} onPick={jumpTo} />
               <MapViewport onChange={setMapBounds} />
               <FollowMarker center={latlngs[cIdx]} routeBounds={bounds} />
