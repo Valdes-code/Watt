@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Upload, FileText, Check, MapPin, Zap, Mountain, AlertCircle, ChevronRight, Clock, X } from "lucide-react";
+import { Upload, Check, MapPin, Zap, Mountain, AlertCircle, Clock, X } from "lucide-react";
 import { importGpx } from "../lib/gpx.js";
 import { SAMPLE_GPX } from "../lib/sampleGpx.js";
 
@@ -127,58 +127,48 @@ export default function GpxImport({ onImported }) {
           />
         </div>
 
-        {/* Sample files */}
-        <div style={{ fontSize: 10.5, fontWeight: 700, color: "#8a99b8", letterSpacing: 0.5, marginBottom: 10 }}>UKÁŽKOVÉ SÚBORY</div>
-        {SAMPLE_FILES.map((file) => (
-          <div key={file.name} onClick={() => importFile(file)} style={{
-            display: "flex", alignItems: "center", gap: 12, background: "#101725",
-            border: "1px solid #1e2940", borderRadius: 12, padding: 14, marginBottom: 9, cursor: "pointer",
-          }}>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: file.unsupported ? "#ff547022" : "#7fb0ff22", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <FileText size={18} color={file.unsupported ? "#ff5470" : "#7fb0ff"} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{file.name}</div>
-              <div style={{ fontSize: 10.5, color: "#6b7a99" }}>{file.source}{file.unsupported ? " · nepodporované" : " · GPX"}</div>
-            </div>
-            <ChevronRight size={18} color="#6b7a99" />
-          </div>
-        ))}
-
-        {/* História importov */}
-        {history.length > 0 && (
-          <>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 20, marginBottom: 10 }}>
-              <span style={{ fontSize: 10.5, fontWeight: 700, color: "#8a99b8", letterSpacing: 0.5 }}>HISTÓRIA IMPORTOV</span>
+        {/* História importov (nahradila ukážkové súbory) */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <span style={{ fontSize: 10.5, fontWeight: 700, color: "#8a99b8", letterSpacing: 0.5 }}>HISTÓRIA IMPORTOV</span>
+          {history.length > 0 && (
+            <span onClick={() => { setHistory([]); saveHistory([]); }} style={{ fontSize: 10.5, fontWeight: 700, color: "#6b7a99", cursor: "pointer" }}>Vymazať</span>
+          )}
+        </div>
+        {history.length === 0 ? (
+          <div style={{ background: "#101725", border: "1px solid #1e2940", borderRadius: 12, padding: 16, textAlign: "center" }}>
+            <div style={{ fontSize: 12.5, color: "#8a99b8", fontWeight: 600 }}>Zatiaľ žiadne importy</div>
+            <div style={{ fontSize: 11.5, color: "#6b7a99", marginTop: 6, lineHeight: 1.5 }}>
+              Načítaj GPX súbor hore, alebo{" "}
               <span
-                onClick={() => { setHistory([]); saveHistory([]); }}
-                style={{ fontSize: 10.5, fontWeight: 700, color: "#6b7a99", cursor: "pointer" }}
-              >Vymazať</span>
+                onClick={() => importFile(SAMPLE_FILES.find((f) => f.source === "Plánovaná trasa"))}
+                style={{ color: "#7fb0ff", fontWeight: 700, cursor: "pointer" }}
+              >skús ukážkovú trasu</span>.
             </div>
-            {history.map((e) => (
-              <div key={e.id} onClick={() => parseText(e.name, e.gpx)} style={{
-                display: "flex", alignItems: "center", gap: 12, background: "#101725",
-                border: "1px solid #1e2940", borderRadius: 12, padding: 12, marginBottom: 9, cursor: "pointer",
-              }}>
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: "#7fb0ff14", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Clock size={16} color="#7fb0ff" />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</div>
-                  <div style={{ fontSize: 10.5, color: "#6b7a99" }}>
-                    {new Date(e.ts).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} · {e.dist.toFixed(1)} km{e.planned ? " · plán" : ""}
-                  </div>
-                </div>
-                <button
-                  onClick={(ev) => { ev.stopPropagation(); removeHistory(e.id); }}
-                  title="Odstrániť z histórie"
-                  style={{ background: "transparent", border: "none", color: "#6b7a99", cursor: "pointer", padding: 4, display: "flex" }}
-                >
-                  <X size={15} />
-                </button>
+          </div>
+        ) : (
+          history.map((e) => (
+            <div key={e.id} onClick={() => parseText(e.name, e.gpx)} style={{
+              display: "flex", alignItems: "center", gap: 12, background: "#101725",
+              border: "1px solid #1e2940", borderRadius: 12, padding: 12, marginBottom: 9, cursor: "pointer",
+            }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: "#7fb0ff14", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Clock size={16} color="#7fb0ff" />
               </div>
-            ))}
-          </>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</div>
+                <div style={{ fontSize: 10.5, color: "#6b7a99" }}>
+                  {new Date(e.ts).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} · {e.dist.toFixed(1)} km{e.planned ? " · plán" : ""}
+                </div>
+              </div>
+              <button
+                onClick={(ev) => { ev.stopPropagation(); removeHistory(e.id); }}
+                title="Odstrániť z histórie"
+                style={{ background: "transparent", border: "none", color: "#6b7a99", cursor: "pointer", padding: 4, display: "flex" }}
+              >
+                <X size={15} />
+              </button>
+            </div>
+          ))
         )}
 
         {/* Loading */}
