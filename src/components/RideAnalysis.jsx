@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Polyline, CircleMarker, useMapEvents, useMap }
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
-  Zap, Heart, Gauge, TrendingUp, MapPin, Cpu, ChevronLeft, ChevronRight, X, Mountain,
+  Zap, Heart, Gauge, TrendingUp, MapPin, Cpu, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Mountain,
 } from "lucide-react";
 // Zdieľaný fyzikálny engine (pozri src/lib/physics.js)
 import { airDensity, estimateCdA, calcPower, physicsTrust, fuse, hrZone } from "../lib/physics.js";
@@ -141,7 +141,13 @@ export default function RideAnalysis({ imported, onClearImport }) {
   const [idx, setIdx] = useState(0);
   const [sliderVal, setSliderVal] = useState(0); // poloha thumbu (sleduje prst voľne)
   const [tipIdx, setTipIdx] = useState(0); // ktorá hodnota sa ukazuje v rohu mapy (len plán)
-  const [cornerOpen, setCornerOpen] = useState(true); // štítok v rohu mapy rozbalený/zbalený
+  const [boxPos, setBoxPos] = useState(null);  // {x,y} px štítku v mape (null = vpravo hore)
+  const [docked, setDocked] = useState(null);  // null | 'left'|'right'|'top'|'bottom' (zrolovaný k okraju)
+  const mapWrapRef = useRef(null);   // obal mapy (hranice pre ťahanie)
+  const boxRef = useRef(null);       // element štítku
+  const dragRef = useRef(null);      // stav ťahania
+  const livePosRef = useRef(null);   // aktuálna poloha štítku počas ťahania
+  const preDockRef = useRef(null);   // poloha pred zrolovaním (na obnovenie)
   const [fetchedEle, setFetchedEle] = useState(null); // výšky dotiahnuté online
   const [eleStatus, setEleStatus] = useState("idle"); // idle | loading | error
   const [mapBounds, setMapBounds] = useState(null); // výrez mapy (pri priblížení)
@@ -171,6 +177,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
     setFetchedEle(null);
     setEleStatus("idle");
     setMapBounds(null);
+    setBoxPos(null); setDocked(null); // štítok späť do pravého horného rohu
   }, [ride, imported]);
 
   const powers = ride.map((p) => p.power);
@@ -342,6 +349,50 @@ export default function RideAnalysis({ imported, onClearImport }) {
   ];
   const tip = tips[tipIdx % tips.length];
 
+  // ── Ťahateľný štítok v rohu mapy: drž a ťahaj po mape; keď ho pretiahneš za
+  // okraj, zroluje sa do tej strany (malé uško, klikom ho zase vytiahneš). ──
+  const DOCK_OVER = 26; // o koľko px musí presahovať za okraj, aby sa zrolovalo
+  const onBoxDown = (e) => {
+    if (e.button != null && e.button !== 0) return;
+    const wrap = mapWrapRef.current?.getBoundingClientRect();
+    const b = boxRef.current?.getBoundingClientRect();
+    if (!wrap || !b) return;
+    dragRef.current = { px: e.clientX, py: e.clientY, baseX: b.left - wrap.left, baseY: b.top - wrap.top, w: b.width, h: b.height, moved: false };
+    livePosRef.current = { x: b.left - wrap.left, y: b.top - wrap.top };
+    boxRef.current.setPointerCapture?.(e.pointerId);
+    e.stopPropagation();
+  };
+  const onBoxMove = (e) => {
+    const d = dragRef.current; if (!d) return;
+    const dx = e.clientX - d.px, dy = e.clientY - d.py;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) d.moved = true;
+    const pos = { x: d.baseX + dx, y: d.baseY + dy };
+    livePosRef.current = pos; setBoxPos(pos);
+    e.stopPropagation();
+  };
+  const onBoxUp = (e) => {
+    const d = dragRef.current; if (!d) return;
+    dragRef.current = null;
+    boxRef.current?.releasePointerCapture?.(e.pointerId);
+    if (!d.moved) {                              // klik (nie ťahanie) → prepni hodnotu (len plán)
+      if (planned) setTipIdx((i) => (i + 1) % tips.length);
+      return;
+    }
+    const wrap = mapWrapRef.current.getBoundingClientRect();
+    const W = wrap.width, H = wrap.height;
+    const { x, y } = livePosRef.current;
+    const over = { left: -x, right: x + d.w - W, top: -y, bottom: y + d.h - H };
+    const side = Object.keys(over).reduce((a, b) => (over[b] > over[a] ? b : a), "left");
+    if (over[side] > DOCK_OVER) {                // pretiahnuté za okraj → zroluj do tej strany
+      preDockRef.current = { x: Math.max(8, Math.min(x, W - d.w - 8)), y: Math.max(8, Math.min(y, H - d.h - 8)) };
+      setDocked(side);
+    } else {                                     // inak nechaj v okne (oriež do hraníc)
+      setBoxPos({ x: Math.max(0, Math.min(x, W - d.w)), y: Math.max(0, Math.min(y, H - d.h)) });
+    }
+    e.stopPropagation();
+  };
+  const undock = () => { setDocked(null); setBoxPos(preDockRef.current); };
+
   // Scrub na grafe/profile → najbližší bod podľa vzdialenosti (rovnaká os km).
   const scrub = (e, ref) => {
     const rect = ref.current.getBoundingClientRect();
@@ -431,7 +482,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
         </div>
 
         {/* MAP (Leaflet + OpenStreetMap) */}
-        <div style={{
+        <div ref={mapWrapRef} style={{
           background: "#0d1424", border: "1px solid #1e2940",
           borderRadius: 18, padding: 6, marginBottom: 12, position: "relative",
         }}>
@@ -480,83 +531,76 @@ export default function RideAnalysis({ imported, onClearImport }) {
             </MapContainer>
           </div>
 
-          {/* floating štítok – zrolovateľný do rohu; pri pláne prepínateľný klikom */}
-          {cornerOpen ? (
-            <div
-              style={{
-                position: "absolute", top: 16, right: 16, zIndex: 1000,
-                background: "rgba(13,20,36,0.92)", border: "1px solid #1e2940",
-                borderRadius: 12, padding: "10px 13px", backdropFilter: "blur(8px)",
-                minWidth: 96, userSelect: "none",
-              }}
-            >
-              {/* zbaliť do rohu */}
-              <button
-                onClick={() => setCornerOpen(false)}
-                title="Zbaliť do rohu"
-                style={{
-                  position: "absolute", top: 3, right: 3, width: 20, height: 20, padding: 0,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  background: "transparent", border: "none", color: "#6b7a99", cursor: "pointer",
-                }}
-              >
-                <ChevronRight size={15} />
-              </button>
-              {/* obsah – klik prepína hodnotu (len plán) */}
-              <div
-                onClick={planned ? () => setTipIdx((i) => (i + 1) % tips.length) : undefined}
-                title={planned ? "Klikni pre ďalšiu hodnotu" : undefined}
-                style={{ cursor: planned ? "pointer" : "default", paddingRight: 12 }}
-              >
-                {planned ? (
-                  <>
-                    <div style={{ fontSize: 10, color: "#6b7a99", fontWeight: 600 }}>
-                      bod {cur.dist.toFixed(1)} km
-                    </div>
-                    <div style={{ fontSize: 26, fontWeight: 800, color: tip.color, lineHeight: 1.1 }}>
-                      {tip.value}<span style={{ fontSize: 13, marginLeft: 2 }}>{tip.unit}</span>
-                    </div>
-                    <div style={{ fontSize: 10.5, color: "#8a99b8", fontWeight: 600 }}>{tip.label}</div>
-                    {/* indikátor, ktorá zo 4 hodnôt je aktívna */}
-                    <div style={{ display: "flex", gap: 4, marginTop: 7 }}>
-                      {tips.map((_, i) => (
-                        <span key={i} style={{
-                          width: 5, height: 5, borderRadius: "50%",
-                          background: i === tipIdx ? tip.color : "#2a3550",
-                        }} />
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ fontSize: 10, color: "#6b7a99", fontWeight: 600 }}>
-                      {cur.dist.toFixed(1)} km
-                    </div>
-                    <div style={{ fontSize: 26, fontWeight: 800, color: colorFor(cur), lineHeight: 1.1 }}>
-                      {cur.power}<span style={{ fontSize: 13, marginLeft: 2 }}>W</span>
-                    </div>
-                    <div style={{ fontSize: 10.5, color: cur.zone ? cur.zone.color : "#6b7a99", fontWeight: 600 }}>
-                      {cur.zone ? cur.zone.label : "tep neznámy"}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          ) : (
-            /* zbalený stav – malá ikonka v rohu, klikom sa rozbalí */
+          {/* ŤAHATEĽNÝ štítok: drž a ťahaj po mape; za okraj sa zroluje do tej strany */}
+          {docked ? (
             <button
-              onClick={() => setCornerOpen(true)}
-              title="Rozbaliť štítok"
+              onClick={undock}
+              title="Vytiahnuť štítok"
               style={{
-                position: "absolute", top: 16, right: 16, zIndex: 1000,
-                width: 30, height: 30, padding: 0,
+                position: "absolute", zIndex: 1000, padding: 0,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 background: "rgba(13,20,36,0.92)", border: "1px solid #1e2940",
-                borderRadius: 10, backdropFilter: "blur(8px)", color: "#8a99b8", cursor: "pointer",
+                backdropFilter: "blur(8px)", color: "#8a99b8", cursor: "pointer",
+                width: docked === "left" || docked === "right" ? 22 : 40,
+                height: docked === "left" || docked === "right" ? 40 : 22,
+                ...(docked === "left" ? { left: 0, top: "50%", transform: "translateY(-50%)", borderRadius: "0 10px 10px 0" }
+                  : docked === "right" ? { right: 0, top: "50%", transform: "translateY(-50%)", borderRadius: "10px 0 0 10px" }
+                  : docked === "top" ? { top: 0, left: "50%", transform: "translateX(-50%)", borderRadius: "0 0 10px 10px" }
+                  : { bottom: 0, left: "50%", transform: "translateX(-50%)", borderRadius: "10px 10px 0 0" }),
               }}
             >
-              <ChevronLeft size={16} />
+              {docked === "left" ? <ChevronRight size={15} /> : docked === "right" ? <ChevronLeft size={15} />
+                : docked === "top" ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
             </button>
+          ) : (
+            <div
+              ref={boxRef}
+              onPointerDown={onBoxDown}
+              onPointerMove={onBoxMove}
+              onPointerUp={onBoxUp}
+              onPointerCancel={onBoxUp}
+              title={planned ? "Ťahaj po mape · klik = ďalšia hodnota" : "Ťahaj po mape"}
+              style={{
+                position: "absolute", zIndex: 1000, touchAction: "none",
+                ...(boxPos ? { left: boxPos.x, top: boxPos.y } : { right: 16, top: 16 }),
+                background: "rgba(13,20,36,0.92)", border: "1px solid #1e2940",
+                borderRadius: 12, padding: "10px 13px", backdropFilter: "blur(8px)",
+                minWidth: 96, userSelect: "none", cursor: "grab",
+              }}
+            >
+              {planned ? (
+                <>
+                  <div style={{ fontSize: 10, color: "#6b7a99", fontWeight: 600 }}>
+                    bod {cur.dist.toFixed(1)} km
+                  </div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: tip.color, lineHeight: 1.1 }}>
+                    {tip.value}<span style={{ fontSize: 13, marginLeft: 2 }}>{tip.unit}</span>
+                  </div>
+                  <div style={{ fontSize: 10.5, color: "#8a99b8", fontWeight: 600 }}>{tip.label}</div>
+                  {/* indikátor, ktorá zo 4 hodnôt je aktívna */}
+                  <div style={{ display: "flex", gap: 4, marginTop: 7 }}>
+                    {tips.map((_, i) => (
+                      <span key={i} style={{
+                        width: 5, height: 5, borderRadius: "50%",
+                        background: i === tipIdx ? tip.color : "#2a3550",
+                      }} />
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 10, color: "#6b7a99", fontWeight: 600 }}>
+                    {cur.dist.toFixed(1)} km
+                  </div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: colorFor(cur), lineHeight: 1.1 }}>
+                    {cur.power}<span style={{ fontSize: 13, marginLeft: 2 }}>W</span>
+                  </div>
+                  <div style={{ fontSize: 10.5, color: cur.zone ? cur.zone.color : "#6b7a99", fontWeight: 600 }}>
+                    {cur.zone ? cur.zone.label : "tep neznámy"}
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </div>
 
