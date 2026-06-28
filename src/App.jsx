@@ -9,10 +9,10 @@ import { importGpx } from "./lib/gpx.js";
 import { useTheme } from "./lib/useTheme.js";
 
 const VIEWS = {
-  preview: { label: "Appka", Component: CycloWattPreview },
   ride: { label: "Analýza jazdy", Component: RideAnalysis },
   gpx: { label: "Import GPX", Component: GpxImport },
   history: { label: "História jázd", Component: RideHistory },
+  preview: { label: "Appka", Component: CycloWattPreview },
   pose: { label: "Detekcia polohy", Component: PoseDetectionDemo },
   profile: { label: "Profil", Component: Settings },
 };
