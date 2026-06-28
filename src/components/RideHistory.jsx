@@ -1,7 +1,8 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { MapPin, Clock, X, Upload, Download, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
 import { importGpx } from "../lib/gpx.js";
 import { loadHistory, saveHistory, removeFromHistory, loadHistoryMax, importHistoryEntries, pushHistory } from "../lib/history.js";
+import { rideSignature, baseName } from "../lib/compare.js";
 
 const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -106,6 +107,27 @@ export default function RideHistory({ onOpen, activeGpx, onGoImport }) {
   const remove = (id) => setHistory(removeFromHistory(id));
   const clearAll = () => { setHistory([]); saveHistory([]); };
 
+  // Pre každú jazdu zisti, či má v histórii „dvojníka": rovnaký obsah trasy
+  // (identical) alebo len rovnaký názov (same-name). Počíta sa raz na zmenu histórie.
+  const dupInfo = useMemo(() => {
+    const sigCount = {}, nameCount = {}, sigById = {};
+    for (const e of history) {
+      let sig = null;
+      try { sig = rideSignature(e.gpx); } catch { /* nevalidný GPX – preskoč podpis */ }
+      sigById[e.id] = sig;
+      if (sig) sigCount[sig] = (sigCount[sig] || 0) + 1;
+      const bn = baseName(e.name);
+      nameCount[bn] = (nameCount[bn] || 0) + 1;
+    }
+    const info = {};
+    for (const e of history) {
+      const sig = sigById[e.id];
+      if (sig && sigCount[sig] > 1) info[e.id] = "identical";
+      else if (nameCount[baseName(e.name)] > 1) info[e.id] = "same-name";
+    }
+    return info;
+  }, [history]);
+
   return (
     <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 50% 0%, var(--bg-grad-1), var(--bg-grad-2) 60%)", padding: 22, fontFamily: "'Inter',sans-serif", display: "flex", justifyContent: "center" }}>
       <div style={{ width: 400, maxWidth: "100%" }}>
@@ -187,6 +209,7 @@ export default function RideHistory({ onOpen, activeGpx, onGoImport }) {
         ) : (
           sorted.map((e) => {
             const active = e.gpx === activeGpx;
+            const dup = dupInfo[e.id];
             return (
               <div key={e.id} onClick={() => open(e)} title={active ? "Práve zobrazená v Analýze jazdy" : undefined} style={{
                 display: "flex", alignItems: "center", gap: 12,
@@ -202,6 +225,12 @@ export default function RideHistory({ onOpen, activeGpx, onGoImport }) {
                     <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</span>
                     {active && (
                       <span style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: 0.4, color: "#ffd54a", background: "rgba(255,213,74,0.15)", borderRadius: 6, padding: "2px 6px", whiteSpace: "nowrap", flexShrink: 0 }}>AKTÍVNA</span>
+                    )}
+                    {dup === "identical" && (
+                      <span title="Rovnaký priebeh trasy ako iná jazda v histórii" style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: 0.4, color: "#7fb0ff", background: "rgba(127,176,255,0.15)", borderRadius: 6, padding: "2px 6px", whiteSpace: "nowrap", flexShrink: 0 }}>ROVNAKÁ TRASA</span>
+                    )}
+                    {dup === "same-name" && (
+                      <span title="Iná trasa s rovnakým názvom" style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: 0.4, color: "var(--text-3)", background: "var(--surface-3)", border: "1px solid var(--border)", borderRadius: 6, padding: "2px 6px", whiteSpace: "nowrap", flexShrink: 0 }}>ROVNAKÝ NÁZOV</span>
                     )}
                   </div>
                   <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 3, display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
