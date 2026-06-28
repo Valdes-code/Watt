@@ -88,21 +88,21 @@ export default function GpxImport({ onImported, activeGpx }) {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 50% 0%, #1a2744, #0a0f1c 60%)", padding: 22, fontFamily: "'Inter',sans-serif", display: "flex", justifyContent: "center" }}>
+    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 50% 0%, var(--bg-grad-1), var(--bg-grad-2) 60%)", padding: 22, fontFamily: "'Inter',sans-serif", display: "flex", justifyContent: "center" }}>
       <div style={{ width: 400 }}>
-        <div style={{ fontSize: 19, fontWeight: 800, color: "#fff" }}>Import jazdy</div>
-        <div style={{ fontSize: 12.5, color: "#8a99b8", marginTop: 6, marginBottom: 20, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 19, fontWeight: 800, color: "var(--text)" }}>Import jazdy</div>
+        <div style={{ fontSize: 12.5, color: "var(--text-2)", marginTop: 6, marginBottom: 20, lineHeight: 1.5 }}>
           Načítaj jazdu z GPX súboru. Ak chýba výkon, appka ho dopočíta z trasy.
         </div>
 
         {/* Drop zone */}
         <div
           onClick={() => fileInputRef.current?.click()}
-          style={{ border: "2px dashed #2a3957", borderRadius: 16, padding: 28, textAlign: "center", marginBottom: 20, background: "#0d1424", cursor: "pointer" }}
+          style={{ border: "2px dashed var(--border-2)", borderRadius: 16, padding: 28, textAlign: "center", marginBottom: 20, background: "var(--surface-2)", cursor: "pointer" }}
         >
-          <Upload size={32} color="#6b7a99" style={{ marginBottom: 10 }} />
-          <div style={{ fontSize: 13, color: "#8a99b8", fontWeight: 600 }}>Vyber súbor zo zariadenia</div>
-          <div style={{ fontSize: 11, color: "#5d6b88", marginTop: 4 }}>alebo skús ukážkové nižšie</div>
+          <Upload size={32} color="var(--text-3)" style={{ marginBottom: 10 }} />
+          <div style={{ fontSize: 13, color: "var(--text-2)", fontWeight: 600 }}>Vyber súbor zo zariadenia</div>
+          <div style={{ fontSize: 11, color: "var(--text-4)", marginTop: 4 }}>alebo vyber z histórie nižšie</div>
           <input
             ref={fileInputRef}
             type="file"
@@ -114,15 +114,15 @@ export default function GpxImport({ onImported, activeGpx }) {
 
         {/* História importov (nahradila ukážkové súbory) */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <span style={{ fontSize: 10.5, fontWeight: 700, color: "#8a99b8", letterSpacing: 0.5 }}>HISTÓRIA IMPORTOV</span>
+          <span style={{ fontSize: 10.5, fontWeight: 700, color: "var(--text-2)", letterSpacing: 0.5 }}>HISTÓRIA IMPORTOV</span>
           {history.length > 0 && (
-            <span onClick={() => { setHistory([]); saveHistory([]); }} style={{ fontSize: 10.5, fontWeight: 700, color: "#6b7a99", cursor: "pointer" }}>Vymazať</span>
+            <span onClick={() => { setHistory([]); saveHistory([]); }} style={{ fontSize: 10.5, fontWeight: 700, color: "var(--text-3)", cursor: "pointer" }}>Vymazať</span>
           )}
         </div>
         {history.length === 0 ? (
-          <div style={{ background: "#101725", border: "1px solid #1e2940", borderRadius: 12, padding: 16, textAlign: "center" }}>
-            <div style={{ fontSize: 12.5, color: "#8a99b8", fontWeight: 600 }}>Zatiaľ žiadne importy</div>
-            <div style={{ fontSize: 11.5, color: "#6b7a99", marginTop: 6, lineHeight: 1.5 }}>
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 16, textAlign: "center" }}>
+            <div style={{ fontSize: 12.5, color: "var(--text-2)", fontWeight: 600 }}>Zatiaľ žiadne importy</div>
+            <div style={{ fontSize: 11.5, color: "var(--text-3)", marginTop: 6, lineHeight: 1.5 }}>
               Načítaj GPX súbor hore, alebo{" "}
               <span
                 onClick={() => parseText(DEMO.name, DEMO.gpx)}
@@ -136,8 +136,8 @@ export default function GpxImport({ onImported, activeGpx }) {
             return (
             <div key={e.id} onClick={() => parseText(e.name, e.gpx)} title={active ? "Práve zobrazená v Analýze jazdy" : undefined} style={{
               display: "flex", alignItems: "center", gap: 12,
-              background: active ? "rgba(255,213,74,0.08)" : "#101725",
-              border: active ? "1px solid #ffd54a" : "1px solid #1e2940",
+              background: active ? "rgba(255,213,74,0.08)" : "var(--surface)",
+              border: active ? "1px solid #ffd54a" : "1px solid var(--border)",
               borderRadius: 12, padding: 12, marginBottom: 9, cursor: "pointer",
             }}>
               <div style={{ width: 34, height: 34, borderRadius: 10, background: active ? "rgba(255,213,74,0.15)" : "#7fb0ff14", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -145,19 +145,19 @@ export default function GpxImport({ onImported, activeGpx }) {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</span>
                   {active && (
                     <span style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: 0.4, color: "#ffd54a", background: "rgba(255,213,74,0.15)", borderRadius: 6, padding: "2px 6px", whiteSpace: "nowrap" }}>AKTÍVNA</span>
                   )}
                 </div>
-                <div style={{ fontSize: 10.5, color: "#6b7a99" }}>
+                <div style={{ fontSize: 10.5, color: "var(--text-3)" }}>
                   {new Date(e.ts).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} · {e.dist.toFixed(1)} km{e.planned ? " · plán" : ""}
                 </div>
               </div>
               <button
                 onClick={(ev) => { ev.stopPropagation(); removeHistory(e.id); }}
                 title="Odstrániť z histórie"
-                style={{ background: "transparent", border: "none", color: "#6b7a99", cursor: "pointer", padding: 4, display: "flex" }}
+                style={{ background: "transparent", border: "none", color: "var(--text-3)", cursor: "pointer", padding: 4, display: "flex" }}
               >
                 <X size={15} />
               </button>
@@ -168,9 +168,9 @@ export default function GpxImport({ onImported, activeGpx }) {
 
         {/* Loading */}
         {status === "loading" && (
-          <div style={{ background: "#101725", border: "1px solid #1e2940", borderRadius: 14, padding: 18, marginTop: 16, textAlign: "center" }}>
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 18, marginTop: 16, textAlign: "center" }}>
             <div style={{ fontSize: 13, color: "#ffd54a", fontWeight: 700 }}>Spracúvam dáta…</div>
-            <div style={{ fontSize: 11, color: "#6b7a99", marginTop: 4 }}>parsujem GPS body, dopočítavam výkon</div>
+            <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>parsujem GPS body, dopočítavam výkon</div>
           </div>
         )}
 
@@ -183,7 +183,7 @@ export default function GpxImport({ onImported, activeGpx }) {
                 {error ? "Súbor sa nepodarilo načítať" : "Nepodporovaný formát"}
               </span>
             </div>
-            <div style={{ fontSize: 12, color: "#c5d0e6", lineHeight: 1.5 }}>
+            <div style={{ fontSize: 12, color: "var(--text-1)", lineHeight: 1.5 }}>
               {error
                 ? error
                 : "Súbory .fit (binárny Garmin formát) zatiaľ nepodporujeme. Exportuj jazdu ako .gpx – väčšina appiek to umožňuje."}
@@ -200,7 +200,7 @@ export default function GpxImport({ onImported, activeGpx }) {
                 {result.planned ? "Trasa pripravená" : "Jazda importovaná"}
               </span>
             </div>
-            <div style={{ fontSize: 11.5, color: "#8a99b8", marginBottom: 14 }}>{result.name}</div>
+            <div style={{ fontSize: 11.5, color: "var(--text-2)", marginBottom: 14 }}>{result.name}</div>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
               <St icon={MapPin} value={result.dist.toFixed(1)} unit="km" label="Vzdialenosť" c="#7fb0ff" />
               <St icon={Zap} value={result.power} unit="W" label={result.planned ? "⌀ odhad" : "⌀ výkon"} c="#ffd54a" />
@@ -226,7 +226,7 @@ export default function GpxImport({ onImported, activeGpx }) {
           </div>
         )}
 
-        <p style={{ fontSize: 11, color: "#5d6b88", textAlign: "center", marginTop: 20, lineHeight: 1.5 }}>
+        <p style={{ fontSize: 11, color: "var(--text-4)", textAlign: "center", marginTop: 20, lineHeight: 1.5 }}>
           Načítaj GPX z Garmin / Strava / komoot / mapy.com. Ak chýba výkon, appka ho dopočíta z trasy. 🚴
         </p>
       </div>
@@ -239,9 +239,9 @@ function St({ icon: Icon, value, unit, label, c }) {
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
         <Icon size={11} color={c} />
-        <span style={{ fontSize: 17, fontWeight: 800, color: "#fff" }}>{value}<span style={{ fontSize: 10, color: "#6b7a99" }}> {unit}</span></span>
+        <span style={{ fontSize: 17, fontWeight: 800, color: "var(--text)" }}>{value}<span style={{ fontSize: 10, color: "var(--text-3)" }}> {unit}</span></span>
       </div>
-      <div style={{ fontSize: 9.5, color: "#6b7a99" }}>{label}</div>
+      <div style={{ fontSize: 9.5, color: "var(--text-3)" }}>{label}</div>
     </div>
   );
 }

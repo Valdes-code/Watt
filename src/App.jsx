@@ -3,19 +3,23 @@ import CycloWattPreview from "./components/CycloWattPreview.jsx";
 import RideAnalysis from "./components/RideAnalysis.jsx";
 import GpxImport from "./components/GpxImport.jsx";
 import PoseDetectionDemo from "./components/PoseDetectionDemo.jsx";
+import Settings from "./components/Settings.jsx";
 import { importGpx } from "./lib/gpx.js";
+import { useTheme } from "./lib/useTheme.js";
 
 const VIEWS = {
   preview: { label: "Appka", Component: CycloWattPreview },
   ride: { label: "Analýza jazdy", Component: RideAnalysis },
   gpx: { label: "Import GPX", Component: GpxImport },
   pose: { label: "Detekcia polohy", Component: PoseDetectionDemo },
+  profile: { label: "Profil", Component: Settings },
 };
 
 export default function App() {
   const [view, setView] = useState("gpx");
   const [imported, setImported] = useState(null); // { name, ...analyzeRide() }
   const [activeGpx, setActiveGpx] = useState(null); // GPX práve aktívnej trasy (na zvýraznenie v histórii)
+  const theme = useTheme();
 
   // „Analýza jazdy" má vždy poslednú importovanú trasu: pri štarte ju načítame
   // z histórie importov (localStorage), takže prežije reload aj prepnutie záložiek.
@@ -42,14 +46,15 @@ export default function App() {
     if (view === "ride") return <RideAnalysis imported={imported} onClearImport={clearImport} />;
     if (view === "gpx") return <GpxImport onImported={handleImported} activeGpx={activeGpx} />;
     if (view === "pose") return <PoseDetectionDemo />;
+    if (view === "profile") return <Settings theme={theme} />;
     return <CycloWattPreview />;
   };
 
   return (
-    <div style={{ background: "#060911", minHeight: "100vh" }}>
+    <div style={{ background: "var(--bg-app)", minHeight: "100vh" }}>
       <nav style={{
         display: "flex", gap: 8, padding: "10px 14px", flexWrap: "wrap",
-        background: "#0a0f1c", borderBottom: "1px solid #1e2940",
+        background: "var(--nav-bg)", borderBottom: "1px solid var(--border)",
         position: "sticky", top: 0, zIndex: 10, fontFamily: "'Inter',sans-serif",
       }}>
         {Object.entries(VIEWS).map(([k, v]) => {
@@ -57,9 +62,9 @@ export default function App() {
           return (
             <button key={k} onClick={() => setView(k)} style={{
               padding: "7px 13px", borderRadius: 10, cursor: "pointer", fontSize: 12.5, fontWeight: 700,
-              border: on ? "1px solid #ffd54a" : "1px solid #1e2940",
-              background: on ? "rgba(255,213,74,0.12)" : "#141c2e",
-              color: on ? "#ffd54a" : "#8a99b8",
+              border: on ? "1px solid #ffd54a" : "1px solid var(--border)",
+              background: on ? "rgba(255,213,74,0.12)" : "var(--surface-3)",
+              color: on ? "#ffd54a" : "var(--text-2)",
             }}>{v.label}</button>
           );
         })}

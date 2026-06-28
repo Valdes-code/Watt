@@ -1,5 +1,41 @@
 /* Globálne štýly CycloWatt */
 
+/* Farebná paleta cez CSS premenné – tmavá je default, [data-theme="light"] ju
+   prepíše. Akcenty (žltá/modrá/oranžová/zelená/červená) ostávajú v oboch témach. */
+:root, :root[data-theme="dark"] {
+  --bg-app: #060911;
+  --bg-grad-1: #1a2744;
+  --bg-grad-2: #0a0f1c;
+  --surface: #101725;
+  --surface-2: #0d1424;
+  --surface-3: #141c2e;
+  --nav-bg: #0a0f1c;
+  --border: #1e2940;
+  --border-2: #2a3957;
+  --text: #ffffff;
+  --text-1: #c5d0e6;
+  --text-2: #8a99b8;
+  --text-3: #6b7a99;
+  --text-4: #5d6b88;
+}
+:root[data-theme="light"] {
+  --bg-app: #eef2f8;
+  --bg-grad-1: #d7e3f6;
+  --bg-grad-2: #f1f5fb;
+  --surface: #ffffff;
+  --surface-2: #f6f9fd;
+  --surface-3: #eef2f8;
+  --nav-bg: #ffffff;
+  --border: #dde4ee;
+  --border-2: #cdd7e6;
+  --text: #16202e;
+  --text-1: #28344a;
+  --text-2: #46566e;
+  --text-3: #6b7a90;
+  --text-4: #8a96a8;
+}
+body { background: var(--bg-app); }
+
 /* Zvislý posuvník celej appky – zladený s tmavým pozadím / transparentný,
    nech neruší. Jemne viditeľný len pri hoveri, aby sa dal chytiť. */
 html {
