@@ -5,7 +5,6 @@ import GpxImport from "./components/GpxImport.jsx";
 import RideHistory from "./components/RideHistory.jsx";
 import PoseDetectionDemo from "./components/PoseDetectionDemo.jsx";
 import Settings from "./components/Settings.jsx";
-import { importGpx } from "./lib/gpx.js";
 import { useTheme } from "./lib/useTheme.js";
 
 // „Analýza jazdy" je zlúčená: najprv výber/import jazdy, po vybraní sa zobrazí
@@ -24,17 +23,13 @@ export default function App() {
   const [activeGpx, setActiveGpx] = useState(null); // GPX práve aktívnej trasy (na zvýraznenie v histórii)
   const theme = useTheme();
 
-  // Pri štarte načítaj poslednú importovanú trasu z histórie a rovno zobraz jej
-  // analýzu; cez „✕" v banneri sa dá vrátiť na výber inej jazdy.
+  // Po spustení appky sa zobrazí výber jazdy. Poslednú trasu z histórie len
+  // zvýrazníme (activeGpx), nenačítavame rovno analýzu – jazdu si vyberie používateľ.
   useEffect(() => {
     try {
       const hist = JSON.parse(localStorage.getItem("watt_gpx_history")) || [];
-      if (hist[0]?.gpx) {
-        const ride = importGpx(hist[0].gpx);
-        setImported({ name: hist[0].name, ...ride });
-        setActiveGpx(hist[0].gpx);
-      }
-    } catch { /* žiadna/poškodená história → ostane výber */ }
+      if (hist[0]?.gpx) setActiveGpx(hist[0].gpx);
+    } catch { /* žiadna/poškodená história */ }
   }, []);
 
   // Volá sa po vybraní jazdy (z výberu/importu alebo z Histórie) – zobrazí analýzu.
