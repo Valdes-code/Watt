@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { MapPin, Clock, X, Upload, Download, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
 import { importGpx } from "../lib/gpx.js";
-import { loadHistory, saveHistory, removeFromHistory, loadHistoryMax, importHistoryEntries } from "../lib/history.js";
+import { loadHistory, saveHistory, removeFromHistory, loadHistoryMax, importHistoryEntries, pushHistory } from "../lib/history.js";
 
 const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -42,28 +42,40 @@ export default function RideHistory({ onOpen, activeGpx, onGoImport }) {
     URL.revokeObjectURL(url);
   };
 
-  // Import zálohy: zlúči s aktuálnou históriou (dedup, oreže na limit).
-  const onImportFile = (ev) => {
-    const file = ev.target.files?.[0];
+  const plural = (n) => (n === 1 ? "trasa" : n < 5 ? "trasy" : "trás");
+
+  // Import súborov zo zariadenia: GPX trasy sa pridajú do histórie,
+  // .json sa berie ako záloha (zlúči sa). Zvláda aj viac súborov naraz.
+  const onImportFile = async (ev) => {
+    const files = Array.from(ev.target.files || []);
     ev.target.value = ""; // umožní znova vybrať ten istý súbor
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
+    if (!files.length) return;
+
+    let gpx = 0, backup = 0, last = loadHistory();
+    const failed = [];
+    for (const file of files) {
       try {
-        const parsed = JSON.parse(String(reader.result));
-        const rides = Array.isArray(parsed) ? parsed : parsed.rides;
-        const before = loadHistory().length;
-        const next = importHistoryEntries(rides);
-        setHistory(next);
-        setError(null);
-        const added = next.length - before;
-        setNote(added > 0 ? `Pridaných ${added} ${added === 1 ? "jazda" : added < 5 ? "jazdy" : "jázd"}.` : "Žiadne nové jazdy (už ich máš v histórii).");
-      } catch (e) {
-        setNote(null);
-        setError(`Import zálohy zlyhal: ${e.message}.`);
+        const text = await file.text();
+        if (/\.json$/i.test(file.name)) {
+          const parsed = JSON.parse(text);
+          last = importHistoryEntries(Array.isArray(parsed) ? parsed : parsed.rides);
+          backup++;
+        } else {
+          const ride = importGpx(text); // hodí chybu pri nevalidnom GPX
+          last = pushHistory(file.name, text, ride);
+          gpx++;
+        }
+      } catch {
+        failed.push(file.name);
       }
-    };
-    reader.readAsText(file);
+    }
+    setHistory(last);
+
+    const parts = [];
+    if (gpx) parts.push(`${gpx} ${plural(gpx)}`);
+    if (backup) parts.push(`${backup} ${backup === 1 ? "záloha" : "zálohy"}`);
+    setNote(parts.length ? `Importované: ${parts.join(" + ")}.` : null);
+    setError(failed.length ? `Nepodarilo sa načítať: ${failed.join(", ")}.` : null);
   };
 
   // Klik: neaktívny štítok → prepne kritérium (smer „desc"); aktívny → otočí smer.
@@ -127,14 +139,14 @@ export default function RideHistory({ onOpen, activeGpx, onGoImport }) {
           }}>
             <Download size={15} /> Export
           </button>
-          <button onClick={() => fileRef.current?.click()} title="Načítať zálohu (.json)" style={{
+          <button onClick={() => fileRef.current?.click()} title="Vybrať GPX súbory zo zariadenia (alebo .json zálohu)" style={{
             flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
             padding: "10px 8px", borderRadius: 11, fontSize: 12.5, fontWeight: 700,
             border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-1)", cursor: "pointer",
           }}>
             <Upload size={15} /> Import
           </button>
-          <input ref={fileRef} type="file" accept="application/json,.json" onChange={onImportFile} style={{ display: "none" }} />
+          <input ref={fileRef} type="file" multiple accept=".gpx,.json,application/gpx+xml,application/json,text/xml" onChange={onImportFile} style={{ display: "none" }} />
         </div>
 
         {history.length > 1 && (
