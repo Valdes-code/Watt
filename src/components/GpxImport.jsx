@@ -134,11 +134,13 @@ export default function GpxImport({ onImported, activeGpx }) {
           </div>
         ) : (
           history.map((e) => {
-            const active = e.gpx === activeGpx;
-            const selected = e.gpx === fullRide?.gpx;
-            const hl = active || selected; // zvýraznenie bez zmeny poradia
+            // Označená je len JEDNA jazda: posledná vybraná z histórie; kým sa nič
+            // neklikne, je to tá práve zobrazená v Analýze (activeGpx).
+            const selGpx = fullRide?.gpx ?? activeGpx;
+            const hl = e.gpx === selGpx;
+            const isActive = hl && e.gpx === activeGpx;
             return (
-            <div key={e.id} onClick={() => parseText(e.name, e.gpx, false)} title={active ? "Práve zobrazená v Analýze jazdy" : undefined} style={{
+            <div key={e.id} onClick={() => parseText(e.name, e.gpx, false)} title={isActive ? "Práve zobrazená v Analýze jazdy" : undefined} style={{
               display: "flex", alignItems: "center", gap: 12,
               background: hl ? "rgba(255,213,74,0.08)" : "var(--surface)",
               border: hl ? "1px solid #ffd54a" : "1px solid var(--border)",
@@ -150,10 +152,8 @@ export default function GpxImport({ onImported, activeGpx }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</span>
-                  {active ? (
-                    <span style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: 0.4, color: "#ffd54a", background: "rgba(255,213,74,0.15)", borderRadius: 6, padding: "2px 6px", whiteSpace: "nowrap" }}>AKTÍVNA</span>
-                  ) : selected && (
-                    <span style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: 0.4, color: "#ffd54a", background: "rgba(255,213,74,0.15)", borderRadius: 6, padding: "2px 6px", whiteSpace: "nowrap" }}>VYBRATÁ</span>
+                  {hl && (
+                    <span style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: 0.4, color: "#ffd54a", background: "rgba(255,213,74,0.15)", borderRadius: 6, padding: "2px 6px", whiteSpace: "nowrap" }}>{isActive ? "AKTÍVNA" : "VYBRATÁ"}</span>
                   )}
                 </div>
                 <div style={{ fontSize: 10.5, color: "var(--text-3)" }}>
