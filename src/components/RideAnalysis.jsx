@@ -465,7 +465,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
   return (
     <div style={{
       minHeight: "100vh",
-      background: "radial-gradient(circle at 50% -10%, #1a2744 0%, #0a0f1c 55%, #060911 100%)",
+      background: "radial-gradient(circle at 50% -10%, var(--bg-grad-1) 0%, var(--bg-grad-2) 55%, var(--bg-app) 100%)",
       padding: 20, fontFamily: "'Inter',sans-serif", display: "flex", justifyContent: "center",
     }}>
       <div style={{ width: 400 }}>
@@ -479,8 +479,8 @@ export default function RideAnalysis({ imported, onClearImport }) {
             <MapPin size={19} color="#0d1320" />
           </div>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "#fff" }}>Analýza jazdy</div>
-            <div style={{ fontSize: 11, color: "#6b7a99" }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text)" }}>Analýza jazdy</div>
+            <div style={{ fontSize: 11, color: "var(--text-3)" }}>
               {totalDist.toFixed(1)} km · ⌀ {avgP} W · max {maxPower} W
             </div>
           </div>
@@ -496,11 +496,11 @@ export default function RideAnalysis({ imported, onClearImport }) {
             <span style={{ fontSize: 12, fontWeight: 700, color: "#4ade80", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               📍 {imported.name}
             </span>
-            <span style={{ fontSize: 10.5, color: "#6b7a99" }}>
+            <span style={{ fontSize: 10.5, color: "var(--text-3)" }}>
               {imported.planned ? "plán · odhad" : imported.hasPower ? "merač" : "z fyziky"}
             </span>
             <button onClick={onClearImport} title="Zavrieť import (späť na demo)" style={{
-              background: "none", border: "none", cursor: "pointer", color: "#8a99b8",
+              background: "none", border: "none", cursor: "pointer", color: "var(--text-2)",
               display: "flex", alignItems: "center", padding: 2,
             }}>
               <X size={15} />
@@ -519,9 +519,9 @@ export default function RideAnalysis({ imported, onClearImport }) {
               <button key={m.k} onClick={() => setMode(m.k)} style={{
                 flex: 1, padding: "9px", borderRadius: 10, cursor: "pointer",
                 fontSize: 12.5, fontWeight: 700,
-                border: on ? "1px solid #ffd54a" : "1px solid #1e2940",
-                background: on ? "rgba(255,213,74,0.12)" : "#141c2e",
-                color: on ? "#ffd54a" : "#8a99b8",
+                border: on ? "1px solid #ffd54a" : "1px solid var(--border)",
+                background: on ? "rgba(255,213,74,0.12)" : "var(--surface-3)",
+                color: on ? "#ffd54a" : "var(--text-2)",
               }}>{m.t}</button>
             );
           })}
@@ -529,17 +529,17 @@ export default function RideAnalysis({ imported, onClearImport }) {
 
         {/* MAP (Leaflet + OpenStreetMap) */}
         <div ref={mapWrapRef} style={{
-          background: "#0d1424",
+          background: "var(--surface-2)",
           ...(mapFull
             ? { position: "fixed", inset: 0, zIndex: 2000, padding: 0, margin: 0, borderRadius: 0, border: "none" }
-            : { position: "relative", border: "1px solid #1e2940", borderRadius: 18, padding: 6, marginBottom: 12 }),
+            : { position: "relative", border: "1px solid var(--border)", borderRadius: 18, padding: 6, marginBottom: 12 }),
         }}>
           <div style={{ height: mapFull ? "100%" : 300, borderRadius: mapFull ? 0 : 14, overflow: "hidden" }}>
             <MapContainer
               key={imported ? imported.name : "demo"}
               bounds={bounds}
               maxZoom={17}
-              style={{ height: "100%", width: "100%", background: "#0d1424" }}
+              style={{ height: "100%", width: "100%", background: "var(--surface-2)" }}
               scrollWheelZoom
               attributionControl={false}
             >
@@ -590,8 +590,8 @@ export default function RideAnalysis({ imported, onClearImport }) {
               style={{
                 position: "absolute", zIndex: 1000, padding: 0,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                background: "rgba(13,20,36,0.92)", border: "1px solid #1e2940",
-                backdropFilter: "blur(8px)", color: "#8a99b8", cursor: "pointer",
+                background: "var(--glass)", border: "1px solid var(--border)",
+                backdropFilter: "blur(8px)", color: "var(--text-2)", cursor: "pointer",
                 width: docked === "left" || docked === "right" ? 22 : 40,
                 height: docked === "left" || docked === "right" ? 40 : 22,
                 ...(docked === "left" ? { left: 0, top: "50%", transform: "translateY(-50%)", borderRadius: "0 10px 10px 0" }
@@ -614,39 +614,39 @@ export default function RideAnalysis({ imported, onClearImport }) {
               style={{
                 position: "absolute", zIndex: 1000, touchAction: "none",
                 ...(boxPos ? { left: boxPos.x, top: boxPos.y } : { right: 16, top: 16 }),
-                background: "rgba(13,20,36,0.92)", border: "1px solid #1e2940",
+                background: "var(--glass)", border: "1px solid var(--border)",
                 borderRadius: 12, padding: "10px 13px", backdropFilter: "blur(8px)",
                 minWidth: 96, userSelect: "none", cursor: "grab",
               }}
             >
               {planned ? (
                 <>
-                  <div style={{ fontSize: 10, color: "#6b7a99", fontWeight: 600 }}>
+                  <div style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 600 }}>
                     bod {cur.dist.toFixed(1)} km
                   </div>
                   <div style={{ fontSize: 26, fontWeight: 800, color: tip.color, lineHeight: 1.1 }}>
                     {tip.value}<span style={{ fontSize: 13, marginLeft: 2 }}>{tip.unit}</span>
                   </div>
-                  <div style={{ fontSize: 10.5, color: "#8a99b8", fontWeight: 600 }}>{tip.label}</div>
+                  <div style={{ fontSize: 10.5, color: "var(--text-2)", fontWeight: 600 }}>{tip.label}</div>
                   {/* indikátor, ktorá zo 4 hodnôt je aktívna */}
                   <div style={{ display: "flex", gap: 4, marginTop: 7 }}>
                     {tips.map((_, i) => (
                       <span key={i} style={{
                         width: 5, height: 5, borderRadius: "50%",
-                        background: i === tipIdx ? tip.color : "#2a3550",
+                        background: i === tipIdx ? tip.color : "var(--border-2)",
                       }} />
                     ))}
                   </div>
                 </>
               ) : (
                 <>
-                  <div style={{ fontSize: 10, color: "#6b7a99", fontWeight: 600 }}>
+                  <div style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 600 }}>
                     {cur.dist.toFixed(1)} km
                   </div>
                   <div style={{ fontSize: 26, fontWeight: 800, color: colorFor(cur), lineHeight: 1.1 }}>
                     {cur.power}<span style={{ fontSize: 13, marginLeft: 2 }}>W</span>
                   </div>
-                  <div style={{ fontSize: 10.5, color: cur.zone ? cur.zone.color : "#6b7a99", fontWeight: 600 }}>
+                  <div style={{ fontSize: 10.5, color: cur.zone ? cur.zone.color : "var(--text-3)", fontWeight: 600 }}>
                     {cur.zone ? cur.zone.label : "tep neznámy"}
                   </div>
                 </>
@@ -658,7 +658,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
           {mapFull && (
             <div style={{
               position: "absolute", left: 16, right: 16, bottom: 16, zIndex: 1200,
-              background: "rgba(13,20,36,0.88)", border: "1px solid #1e2940",
+              background: "var(--glass)", border: "1px solid var(--border)",
               borderRadius: 14, padding: "11px 16px", backdropFilter: "blur(8px)",
               display: "flex", alignItems: "center", gap: 12,
             }}>
@@ -674,7 +674,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
                 onTouchEnd={stopGlide}
                 style={{ flex: 1, accentColor: "#ff8a3d", cursor: "pointer", touchAction: "none" }}
               />
-              <span style={{ fontSize: 12, color: "#8a99b8", fontWeight: 700, minWidth: 50, textAlign: "right" }}>
+              <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 700, minWidth: 50, textAlign: "right" }}>
                 {totalDist.toFixed(1)} km
               </span>
             </div>
@@ -682,9 +682,9 @@ export default function RideAnalysis({ imported, onClearImport }) {
         </div>
 
         {/* GRAPH (scrub) – prepínateľný: Výkon / Prevýšenie pozdĺž trasy */}
-        <div style={{ background: "#101725", border: "1px solid #1e2940", borderRadius: 16, padding: 14, marginBottom: 12 }}>
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, padding: 14, marginBottom: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#8a99b8", letterSpacing: 0.5 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", letterSpacing: 0.5 }}>
               {metric === "ele" ? "PREVÝŠENIE POZDĹŽ TRASY" : "VÝKON POZDĹŽ TRASY"}
             </span>
             <div style={{ display: "flex", gap: 6 }}>
@@ -693,9 +693,9 @@ export default function RideAnalysis({ imported, onClearImport }) {
                 return (
                   <button key={k} onClick={() => setMetric(k)} style={{
                     padding: "4px 10px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 700,
-                    border: on ? "1px solid #ffd54a" : "1px solid #1e2940",
-                    background: on ? "rgba(255,213,74,0.12)" : "#141c2e",
-                    color: on ? "#ffd54a" : "#8a99b8",
+                    border: on ? "1px solid #ffd54a" : "1px solid var(--border)",
+                    background: on ? "rgba(255,213,74,0.12)" : "var(--surface-3)",
+                    color: on ? "#ffd54a" : "var(--text-2)",
                   }}>{t}</button>
                 );
               })}
@@ -705,9 +705,9 @@ export default function RideAnalysis({ imported, onClearImport }) {
           {metric === "ele" && !hasElevation ? (
             /* Prevýšenie bez dát – ponuka dopočtu online */
             <div style={{ minHeight: 90, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 6, padding: "6px 0" }}>
-              <Mountain size={20} color="#6b7a99" style={{ opacity: 0.6 }} />
-              <span style={{ fontSize: 12, color: "#8a99b8", fontWeight: 600 }}>Trasa neobsahuje výškové dáta</span>
-              <span style={{ fontSize: 10.5, color: "#6b7a99", lineHeight: 1.4, maxWidth: 300 }}>
+              <Mountain size={20} color="var(--text-3)" style={{ opacity: 0.6 }} />
+              <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>Trasa neobsahuje výškové dáta</span>
+              <span style={{ fontSize: 10.5, color: "var(--text-3)", lineHeight: 1.4, maxWidth: 300 }}>
                 Tvoje GPX nemá uložené výšky (&lt;ele&gt;). Môžem ich dopočítať z terénu online.
               </span>
               {eleStatus === "error" && (
@@ -716,10 +716,10 @@ export default function RideAnalysis({ imported, onClearImport }) {
                 </span>
               )}
               <button onClick={loadElevation} disabled={eleStatus === "loading"} style={{
-                marginTop: 2, background: eleStatus === "loading" ? "#1e2940" : "#ff8a3d",
+                marginTop: 2, background: eleStatus === "loading" ? "var(--border)" : "#ff8a3d",
                 border: "none", borderRadius: 10, padding: "8px 14px",
                 cursor: eleStatus === "loading" ? "default" : "pointer",
-                fontSize: 12, fontWeight: 800, color: eleStatus === "loading" ? "#8a99b8" : "#0d1320",
+                fontSize: 12, fontWeight: 800, color: eleStatus === "loading" ? "var(--text-2)" : "#0d1320",
               }}>
                 {eleStatus === "loading" ? "Sťahujem výšky…" : "Dopočítať výšky online"}
               </button>
@@ -746,7 +746,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
                   </svg>
                 ) : (
                   /* Stĺpce výkonu so šírkou podľa vzdialenosti úseku (len výrez) */
-                  <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: "block" }}>
+                  <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: "block", color: "var(--text)" }}>
                     {Array.from({ length: winEnd - winStart }, (_, k) => {
                       const i = winStart + k;
                       const p = ride[i];
@@ -755,7 +755,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
                       return (
                         <rect key={i}
                           x={x} y={100 - h} width={Math.max(0.01, xPct(i + 1) - x)} height={h}
-                          fill={i === cIdx ? "#fff" : colorFor(p)}
+                          fill={i === cIdx ? "currentColor" : colorFor(p)}
                           opacity={i === cIdx ? 1 : 0.85}
                         />
                       );
@@ -766,26 +766,26 @@ export default function RideAnalysis({ imported, onClearImport }) {
                 <div style={{
                   position: "absolute", top: 0, bottom: 0,
                   left: `${xPct(cIdx)}%`,
-                  width: 2, background: "#fff", pointerEvents: "none",
+                  width: 2, background: "var(--text)", pointerEvents: "none",
                 }} />
                 {/* bod na výškovej krivke */}
                 {metric === "ele" && (
                   <div style={{
                     position: "absolute", left: `${xPct(cIdx)}%`, top: `${eY(eles[cIdx])}%`,
-                    width: 9, height: 9, borderRadius: "50%", background: "#fff",
+                    width: 9, height: 9, borderRadius: "50%", background: "var(--text)",
                     border: "2px solid #ff8a3d", transform: "translate(-50%,-50%)", pointerEvents: "none",
                   }} />
                 )}
               </div>
               {/* spodný riadok: pri výkone os v km, pri prevýšení rozsah + stúpanie */}
               {metric === "ele" ? (
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 10, color: "#6b7a99" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 10, color: "var(--text-3)" }}>
                   <span>{Math.round(eMin)} m</span>
                   <span style={{ color: "#ff8a3d", fontWeight: 700 }}>{Math.round(eles[cIdx])} m · ↑ {eleGain} m</span>
                   <span>{Math.round(eMax)} m</span>
                 </div>
               ) : (
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "#6b7a99" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "var(--text-3)" }}>
                   <span>{wDist0.toFixed(1)} km</span>
                   <span>{(wDist0 + wSpan / 2).toFixed(1)} km</span>
                   <span>{(wDist0 + wSpan).toFixed(1)} km</span>
@@ -822,7 +822,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
         {/* source + nav */}
         <div style={{
           display: "flex", alignItems: "center", gap: 10,
-          background: "#101725", border: "1px solid #1e2940",
+          background: "var(--surface)", border: "1px solid var(--border)",
           borderRadius: 14, padding: "10px 12px",
         }}>
           <button onClick={() => jumpTo(cIdx - 1)} style={navBtn}>
@@ -832,7 +832,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
             <div style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 700, color: "#ffd54a" }}>
               <Cpu size={12} /> zdroj: {cur.source}
             </div>
-            <div style={{ fontSize: 10.5, color: "#6b7a99", marginTop: 2 }}>
+            <div style={{ fontSize: 10.5, color: "var(--text-3)", marginTop: 2 }}>
               bod {cIdx + 1} / {ride.length}
             </div>
           </div>
@@ -845,9 +845,9 @@ export default function RideAnalysis({ imported, onClearImport }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, justifyContent: "center" }}>
           {mode === "power" ? (
             <>
-              <span style={{ fontSize: 10.5, color: "#6b7a99" }}>{minP}W</span>
+              <span style={{ fontSize: 10.5, color: "var(--text-3)" }}>{minP}W</span>
               <div style={{ width: 140, height: 8, borderRadius: 4, background: "linear-gradient(90deg,#3b82f6,#4ade80,#ffd54a,#ff5470)" }} />
-              <span style={{ fontSize: 10.5, color: "#6b7a99" }}>{maxP}W</span>
+              <span style={{ fontSize: 10.5, color: "var(--text-3)" }}>{maxP}W</span>
             </>
           ) : hasZones ? (
             [1, 2, 3, 4, 5].map((z) => {
@@ -855,11 +855,11 @@ export default function RideAnalysis({ imported, onClearImport }) {
               return <span key={z} style={{ fontSize: 10, fontWeight: 700, color: "#0d1320", background: c, padding: "2px 8px", borderRadius: 6 }}>Z{z}</span>;
             })
           ) : (
-            <span style={{ fontSize: 10.5, color: "#6b7a99" }}>GPX bez tepu – farbím podľa výkonu</span>
+            <span style={{ fontSize: 10.5, color: "var(--text-3)" }}>GPX bez tepu – farbím podľa výkonu</span>
           )}
         </div>
 
-        <p style={{ fontSize: 11, color: "#5d6b88", textAlign: "center", marginTop: 14, lineHeight: 1.5 }}>
+        <p style={{ fontSize: 11, color: "var(--text-4)", textAlign: "center", marginTop: 14, lineHeight: 1.5 }}>
           {imported
             ? imported.planned
               ? "Plánovaná trasa z tvojho GPX – ešte neodjazdená. Výkon je odhad pri ~22 km/h (spomalený do kopca, rýchlejší z kopca). Klikni na mapu alebo potiahni po grafe. Podklad: OpenStreetMap."
@@ -872,20 +872,20 @@ export default function RideAnalysis({ imported, onClearImport }) {
 }
 
 const navBtn = {
-  width: 38, height: 38, borderRadius: 10, border: "1px solid #1e2940",
-  background: "#0a0f1c", color: "#8a99b8", cursor: "pointer",
+  width: 38, height: 38, borderRadius: 10, border: "1px solid var(--border)",
+  background: "var(--surface-2)", color: "var(--text-2)", cursor: "pointer",
   display: "flex", alignItems: "center", justifyContent: "center",
 };
 
 function Stat({ icon: Icon, label, value, unit, color }) {
   return (
-    <div style={{ flex: 1, background: "#101725", border: "1px solid #1e2940", borderRadius: 14, padding: "12px 14px" }}>
+    <div style={{ flex: 1, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: "12px 14px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
         <Icon size={13} color={color} />
-        <span style={{ fontSize: 11, color: "#8a99b8", fontWeight: 600 }}>{label}</span>
+        <span style={{ fontSize: 11, color: "var(--text-2)", fontWeight: 600 }}>{label}</span>
       </div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: "-0.5px" }}>
-        {value}<span style={{ fontSize: 12, color: "#6b7a99", marginLeft: 3 }}>{unit}</span>
+      <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text)", letterSpacing: "-0.5px" }}>
+        {value}<span style={{ fontSize: 12, color: "var(--text-3)", marginLeft: 3 }}>{unit}</span>
       </div>
     </div>
   );

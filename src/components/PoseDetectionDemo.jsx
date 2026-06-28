@@ -48,7 +48,7 @@ export default function PoseDetectionDemo() {
 
   return (
     <div style={{
-      minHeight: "100vh", background: "radial-gradient(circle at 50% 0%, #1a2744, #0a0f1c 60%)",
+      minHeight: "100vh", background: "radial-gradient(circle at 50% 0%, var(--bg-grad-1), var(--surface-2) 60%)",
       padding: 22, fontFamily: "'Inter',sans-serif", display: "flex", justifyContent: "center",
     }}>
       <div style={{ width: 420 }}>
@@ -57,15 +57,15 @@ export default function PoseDetectionDemo() {
             <Camera size={20} color="#0d1320" />
           </div>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 800, color: "#fff" }}>Detekcia polohy</div>
-            <div style={{ fontSize: 11, color: "#6b7a99" }}>Predná kamera → poloha → CdA</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: "var(--text)" }}>Detekcia polohy</div>
+            <div style={{ fontSize: 11, color: "var(--text-3)" }}>Predná kamera → poloha → CdA</div>
           </div>
         </div>
 
         {/* Camera view simulation */}
         <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
-          <div style={{ flex: 1, background: "#0d1424", border: "1px solid #1e2940", borderRadius: 16, padding: 12, position: "relative" }}>
-            <div style={{ fontSize: 10, color: "#6b7a99", fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
+          <div style={{ flex: 1, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 16, padding: 12, position: "relative" }}>
+            <div style={{ fontSize: 10, color: "var(--text-3)", fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
               <Camera size={11} /> KAMERA
             </div>
             <svg viewBox="0 0 100 100" style={{ width: "100%", display: "block" }}>
@@ -94,28 +94,28 @@ export default function PoseDetectionDemo() {
           </div>
 
           {/* Detected result */}
-          <div style={{ flex: 1, background: "#141c2e", border: `1px solid ${p.color}40`, borderRadius: 16, padding: 14, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-            <div style={{ fontSize: 10, color: "#8a99b8", fontWeight: 600 }}>ROZPOZNANÉ</div>
+          <div style={{ flex: 1, background: "var(--surface-3)", border: `1px solid ${p.color}40`, borderRadius: 16, padding: 14, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            <div style={{ fontSize: 10, color: "var(--text-2)", fontWeight: 600 }}>ROZPOZNANÉ</div>
             <div style={{ fontSize: 19, fontWeight: 800, color: p.color, marginVertical: 4, lineHeight: 1.2 }}>{p.label}</div>
-            <div style={{ fontSize: 11, color: "#8a99b8", lineHeight: 1.4, marginTop: 4 }}>{p.desc}</div>
+            <div style={{ fontSize: 11, color: "var(--text-2)", lineHeight: 1.4, marginTop: 4 }}>{p.desc}</div>
           </div>
         </div>
 
         {/* CdA + Power */}
         <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-          <div style={{ flex: 1, background: "#101725", border: "1px solid #1e2940", borderRadius: 14, padding: 14 }}>
+          <div style={{ flex: 1, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
               <Wind size={13} color="#7fb0ff" />
-              <span style={{ fontSize: 11, color: "#8a99b8", fontWeight: 600 }}>CdA</span>
+              <span style={{ fontSize: 11, color: "var(--text-2)", fontWeight: 600 }}>CdA</span>
             </div>
-            <div style={{ fontSize: 24, fontWeight: 800, color: "#fff" }}>{p.cda.toFixed(3)}<span style={{ fontSize: 12, color: "#6b7a99" }}> m²</span></div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: "var(--text)" }}>{p.cda.toFixed(3)}<span style={{ fontSize: 12, color: "var(--text-3)" }}> m²</span></div>
           </div>
-          <div style={{ flex: 1, background: "#101725", border: "1px solid #1e2940", borderRadius: 14, padding: 14 }}>
+          <div style={{ flex: 1, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
               <Zap size={13} color="#ffd54a" />
-              <span style={{ fontSize: 11, color: "#8a99b8", fontWeight: 600 }}>Výkon @ 35 km/h</span>
+              <span style={{ fontSize: 11, color: "var(--text-2)", fontWeight: 600 }}>Výkon @ 35 km/h</span>
             </div>
-            <div style={{ fontSize: 24, fontWeight: 800, color: "#fff" }}>{power}<span style={{ fontSize: 12, color: "#6b7a99" }}> W</span></div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: "var(--text)" }}>{power}<span style={{ fontSize: 12, color: "var(--text-3)" }}> W</span></div>
           </div>
         </div>
 
@@ -128,7 +128,7 @@ export default function PoseDetectionDemo() {
         )}
 
         {/* Position selector */}
-        <div style={{ fontSize: 11, color: "#8a99b8", fontWeight: 600, marginBottom: 10 }}>
+        <div style={{ fontSize: 11, color: "var(--text-2)", fontWeight: 600, marginBottom: 10 }}>
           VYSKÚŠAJ POLOHY (v appke sa rozpozná automaticky):
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -137,17 +137,17 @@ export default function PoseDetectionDemo() {
             return (
               <button key={k} onClick={() => setPos(k)} style={{
                 padding: "12px", borderRadius: 12, cursor: "pointer", textAlign: "left",
-                border: on ? `1px solid ${v.color}` : "1px solid #1e2940",
-                background: on ? `${v.color}1a` : "#101725",
+                border: on ? `1px solid ${v.color}` : "1px solid var(--border)",
+                background: on ? `${v.color}1a` : "var(--surface)",
               }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: on ? v.color : "#c5d0e6" }}>{v.label}</div>
-                <div style={{ fontSize: 10, color: "#6b7a99", marginTop: 2 }}>CdA {v.cda.toFixed(2)} · {powerAt(v.cda)} W</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: on ? v.color : "var(--text-1)" }}>{v.label}</div>
+                <div style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>CdA {v.cda.toFixed(2)} · {powerAt(v.cda)} W</div>
               </button>
             );
           })}
         </div>
 
-        <p style={{ fontSize: 11, color: "#5d6b88", textAlign: "center", marginTop: 18, lineHeight: 1.5 }}>
+        <p style={{ fontSize: 11, color: "var(--text-4)", textAlign: "center", marginTop: 18, lineHeight: 1.5 }}>
           Kamera rozpozná kĺbové body a podľa výšky ramien a polohy rúk určí polohu tela.
           Spracovanie beží na zariadení – video nikam neodchádza. 🔒
         </p>

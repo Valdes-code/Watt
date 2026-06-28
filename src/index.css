@@ -17,6 +17,7 @@
   --text-2: #8a99b8;
   --text-3: #6b7a99;
   --text-4: #5d6b88;
+  --glass: rgba(13, 20, 36, 0.92);   /* plávajúce prekrytia nad mapou */
 }
 :root[data-theme="light"] {
   --bg-app: #eef2f8;
@@ -33,6 +34,7 @@
   --text-2: #46566e;
   --text-3: #6b7a90;
   --text-4: #8a96a8;
+  --glass: rgba(255, 255, 255, 0.9);
 }
 body { background: var(--bg-app); }
 
