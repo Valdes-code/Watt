@@ -1,7 +1,9 @@
-import React, { useState } from "react";
-import { MapPin, Clock, X, Upload, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
+import React, { useState, useRef } from "react";
+import { MapPin, Clock, X, Upload, Download, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
 import { importGpx } from "../lib/gpx.js";
-import { loadHistory, saveHistory, removeFromHistory, loadHistoryMax } from "../lib/history.js";
+import { loadHistory, saveHistory, removeFromHistory, loadHistoryMax, importHistoryEntries } from "../lib/history.js";
+
+const pad2 = (n) => String(n).padStart(2, "0");
 
 // Typ trasy z prípony názvu súboru (gpx, fit, tcx…). Bez prípony → „gpx".
 const fileType = (name) => {
@@ -20,8 +22,49 @@ const SORTS = [
 export default function RideHistory({ onOpen, activeGpx, onGoImport }) {
   const [history, setHistory] = useState(loadHistory);
   const [error, setError] = useState(null);
+  const [note, setNote] = useState(null);
   const [sort, setSort] = useState("date");
   const [dir, setDir] = useState("desc"); // desc = od poslednej/najväčšej, asc = naopak
+  const fileRef = useRef(null);
+
+  // Export celej histórie do JSON súboru (záloha do zariadenia).
+  const exportAll = () => {
+    const data = JSON.stringify({ app: "watt", kind: "ride-history", version: 1, rides: loadHistory() }, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const d = new Date();
+    a.href = url;
+    a.download = `watt-historia-jazd-${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // Import zálohy: zlúči s aktuálnou históriou (dedup, oreže na limit).
+  const onImportFile = (ev) => {
+    const file = ev.target.files?.[0];
+    ev.target.value = ""; // umožní znova vybrať ten istý súbor
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result));
+        const rides = Array.isArray(parsed) ? parsed : parsed.rides;
+        const before = loadHistory().length;
+        const next = importHistoryEntries(rides);
+        setHistory(next);
+        setError(null);
+        const added = next.length - before;
+        setNote(added > 0 ? `Pridaných ${added} ${added === 1 ? "jazda" : added < 5 ? "jazdy" : "jázd"}.` : "Žiadne nové jazdy (už ich máš v histórii).");
+      } catch (e) {
+        setNote(null);
+        setError(`Import zálohy zlyhal: ${e.message}.`);
+      }
+    };
+    reader.readAsText(file);
+  };
 
   // Klik: neaktívny štítok → prepne kritérium (smer „desc"); aktívny → otočí smer.
   const onSort = (key) => {
@@ -69,6 +112,30 @@ export default function RideHistory({ onOpen, activeGpx, onGoImport }) {
         {error && (
           <div style={{ background: "#ff54701a", border: "1px solid #ff547055", borderRadius: 12, padding: 12, marginBottom: 14, fontSize: 12, color: "#ff5470", fontWeight: 600 }}>{error}</div>
         )}
+        {note && (
+          <div style={{ background: "#4ade801a", border: "1px solid #4ade8055", borderRadius: 12, padding: 12, marginBottom: 14, fontSize: 12, color: "#4ade80", fontWeight: 600 }}>{note}</div>
+        )}
+
+        {/* Záloha: export/import histórie jázd */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <button onClick={exportAll} disabled={history.length === 0} title={history.length === 0 ? "Najprv pridaj nejaké jazdy" : "Stiahnuť zálohu (.json)"} style={{
+            flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+            padding: "10px 8px", borderRadius: 11, fontSize: 12.5, fontWeight: 700,
+            border: "1px solid var(--border)", background: "var(--surface)",
+            color: history.length === 0 ? "var(--text-4)" : "var(--text-1)",
+            cursor: history.length === 0 ? "default" : "pointer", opacity: history.length === 0 ? 0.6 : 1,
+          }}>
+            <Download size={15} /> Export
+          </button>
+          <button onClick={() => fileRef.current?.click()} title="Načítať zálohu (.json)" style={{
+            flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+            padding: "10px 8px", borderRadius: 11, fontSize: 12.5, fontWeight: 700,
+            border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-1)", cursor: "pointer",
+          }}>
+            <Upload size={15} /> Import
+          </button>
+          <input ref={fileRef} type="file" accept="application/json,.json" onChange={onImportFile} style={{ display: "none" }} />
+        </div>
 
         {history.length > 1 && (
           <div style={{ marginBottom: 14 }}>

@@ -33,6 +33,42 @@ export const saveHistoryMax = (n) => {
   return v;
 };
 
+// Normalizuje jeden záznam zo zálohy (tolerantne, s rozumnými predvolbami).
+const normalizeEntry = (e, i) => ({
+  id: String(e.id || `${e.ts || 0}-${i}`),
+  name: String(e.name || "Trasa.gpx"),
+  dist: Number(e.dist) || 0,
+  planned: !!e.planned,
+  ts: Number(e.ts) || 0,
+  gpx: e.gpx,
+});
+
+// Zlúči importované záznamy s aktuálnou históriou (dedup podľa GPX, najnovšie
+// navrch), oreže na nastavený limit. Vracia nové pole. Hodí chybu pri zlom vstupe.
+export const importHistoryEntries = (entries) => {
+  if (!Array.isArray(entries)) throw new Error("súbor neobsahuje zoznam jázd");
+  const clean = entries
+    .filter((e) => e && typeof e.gpx === "string" && e.gpx.length)
+    .map(normalizeEntry);
+  if (!clean.length) throw new Error("súbor neobsahuje žiadne platné trasy");
+
+  const seenGpx = new Set();
+  const usedIds = new Set();
+  const merged = [];
+  for (const e of [...clean, ...loadHistory()]) {
+    if (seenGpx.has(e.gpx)) continue;
+    seenGpx.add(e.gpx);
+    let id = e.id;
+    while (usedIds.has(id)) id = id + "_";
+    usedIds.add(id);
+    merged.push({ ...e, id });
+  }
+  merged.sort((a, b) => b.ts - a.ts);
+  const next = merged.slice(0, loadHistoryMax());
+  saveHistory(next);
+  return next;
+};
+
 // Pridá/posunie trasu na vrchol histórie (dedup podľa obsahu GPX). Vracia nové pole.
 export const pushHistory = (name, text, ride) => {
   const entry = { id: String(Date.now()), name, dist: ride.distanceKm, planned: !!ride.planned, ts: Date.now(), gpx: text };
