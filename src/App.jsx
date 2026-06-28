@@ -8,23 +8,24 @@ import Settings from "./components/Settings.jsx";
 import { importGpx } from "./lib/gpx.js";
 import { useTheme } from "./lib/useTheme.js";
 
+// „Analýza jazdy" je zlúčená: najprv výber/import jazdy, po vybraní sa zobrazí
+// analýza s mapou. Samostatná záložka „Import GPX" už nie je.
 const VIEWS = {
-  ride: { label: "Analýza jazdy", Component: RideAnalysis },
-  gpx: { label: "Import GPX", Component: GpxImport },
-  history: { label: "História jázd", Component: RideHistory },
-  preview: { label: "Appka", Component: CycloWattPreview },
-  pose: { label: "Detekcia polohy", Component: PoseDetectionDemo },
-  profile: { label: "Profil", Component: Settings },
+  ride: { label: "Analýza jazdy" },
+  history: { label: "História jázd" },
+  preview: { label: "Appka" },
+  pose: { label: "Detekcia polohy" },
+  profile: { label: "Profil" },
 };
 
 export default function App() {
-  const [view, setView] = useState("gpx");
-  const [imported, setImported] = useState(null); // { name, ...analyzeRide() }
+  const [view, setView] = useState("ride");
+  const [imported, setImported] = useState(null); // { name, ...analyzeRide() } – vybraná jazda
   const [activeGpx, setActiveGpx] = useState(null); // GPX práve aktívnej trasy (na zvýraznenie v histórii)
   const theme = useTheme();
 
-  // „Analýza jazdy" má vždy poslednú importovanú trasu: pri štarte ju načítame
-  // z histórie importov (localStorage), takže prežije reload aj prepnutie záložiek.
+  // Pri štarte načítaj poslednú importovanú trasu z histórie a rovno zobraz jej
+  // analýzu; cez „✕" v banneri sa dá vrátiť na výber inej jazdy.
   useEffect(() => {
     try {
       const hist = JSON.parse(localStorage.getItem("watt_gpx_history")) || [];
@@ -33,21 +34,24 @@ export default function App() {
         setImported({ name: hist[0].name, ...ride });
         setActiveGpx(hist[0].gpx);
       }
-    } catch { /* žiadna/poškodená história → ostane demo */ }
+    } catch { /* žiadna/poškodená história → ostane výber */ }
   }, []);
 
-  // GpxImport zavolá po úspešnom načítaní – uložíme jazdu a prepneme na mapu.
+  // Volá sa po vybraní jazdy (z výberu/importu alebo z Histórie) – zobrazí analýzu.
   const handleImported = (name, ride, gpx) => {
     setImported({ name, ...ride });
     setActiveGpx(gpx ?? null);
     setView("ride");
   };
-  const clearImport = () => setImported(null);
+  // Späť na výber jazdy (v rámci „Analýza jazdy").
+  const pickAnother = () => { setImported(null); setView("ride"); };
 
   const renderActive = () => {
-    if (view === "ride") return <RideAnalysis imported={imported} onClearImport={clearImport} />;
-    if (view === "gpx") return <GpxImport onImported={handleImported} activeGpx={activeGpx} />;
-    if (view === "history") return <RideHistory onOpen={handleImported} activeGpx={activeGpx} onGoImport={() => setView("gpx")} />;
+    if (view === "ride")
+      return imported
+        ? <RideAnalysis imported={imported} onClearImport={pickAnother} />
+        : <GpxImport onImported={handleImported} activeGpx={activeGpx} />;
+    if (view === "history") return <RideHistory onOpen={handleImported} activeGpx={activeGpx} onGoImport={pickAnother} />;
     if (view === "pose") return <PoseDetectionDemo />;
     if (view === "profile") return <Settings theme={theme} />;
     return <CycloWattPreview />;

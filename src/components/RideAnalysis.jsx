@@ -499,7 +499,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
             <span style={{ fontSize: 10.5, color: "var(--text-3)" }}>
               {imported.planned ? "plán · odhad" : imported.hasPower ? "merač" : "z fyziky"}
             </span>
-            <button onClick={onClearImport} title="Zavrieť import (späť na demo)" style={{
+            <button onClick={onClearImport} title="Vybrať inú jazdu" style={{
               background: "none", border: "none", cursor: "pointer", color: "var(--text-2)",
               display: "flex", alignItems: "center", padding: 2,
             }}>
