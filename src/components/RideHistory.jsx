@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MapPin, Clock, X, Upload, ChevronRight } from "lucide-react";
+import { MapPin, Clock, X, Upload, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
 import { importGpx } from "../lib/gpx.js";
 import { loadHistory, saveHistory, removeFromHistory } from "../lib/history.js";
 
@@ -21,15 +21,23 @@ export default function RideHistory({ onOpen, activeGpx, onGoImport }) {
   const [history, setHistory] = useState(loadHistory);
   const [error, setError] = useState(null);
   const [sort, setSort] = useState("date");
+  const [dir, setDir] = useState("desc"); // desc = od poslednej/najväčšej, asc = naopak
+
+  // Klik: neaktívny štítok → prepne kritérium (smer „desc"); aktívny → otočí smer.
+  const onSort = (key) => {
+    if (key === sort) setDir((d) => (d === "desc" ? "asc" : "desc"));
+    else { setSort(key); setDir("desc"); }
+  };
 
   // Zoradenie len pre zobrazenie (uložené poradie ostáva = poradie importov).
+  const mul = dir === "asc" ? -1 : 1;
   const sorted = [...history].sort((a, b) => {
-    if (sort === "dist") return b.dist - a.dist;            // najdlhšie najprv
+    if (sort === "dist") return (b.dist - a.dist) * mul;    // desc: najdlhšie najprv
     if (sort === "type") {
       const t = fileType(a.name).localeCompare(fileType(b.name));
-      return t !== 0 ? t : b.ts - a.ts;                     // v rámci typu najnovšie najprv
+      return (t !== 0 ? t : b.ts - a.ts) * mul;             // desc: a→z, v rámci typu najnovšie
     }
-    return b.ts - a.ts;                                     // dátum: najnovšie najprv
+    return (b.ts - a.ts) * mul;                             // desc: najnovšie (od poslednej) najprv
   });
 
   const open = (e) => {
@@ -68,13 +76,15 @@ export default function RideHistory({ onOpen, activeGpx, onGoImport }) {
             <div style={{ display: "flex", gap: 7 }}>
               {SORTS.map(({ key, label }) => {
                 const on = sort === key;
+                const Arrow = dir === "asc" ? ArrowUp : ArrowDown;
                 return (
-                  <button key={key} onClick={() => setSort(key)} style={{
-                    flex: 1, padding: "8px 6px", borderRadius: 10, cursor: "pointer", fontSize: 11.5, fontWeight: 700,
+                  <button key={key} onClick={() => onSort(key)} title={on ? "Klikni pre otočenie poradia" : undefined} style={{
+                    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                    padding: "8px 6px", borderRadius: 10, cursor: "pointer", fontSize: 11.5, fontWeight: 700,
                     border: on ? "1px solid #ffd54a" : "1px solid var(--border)",
                     background: on ? "rgba(255,213,74,0.12)" : "var(--surface)",
                     color: on ? "#ffd54a" : "var(--text-2)",
-                  }}>{label}</button>
+                  }}>{label}{on && <Arrow size={13} />}</button>
                 );
               })}
             </div>
