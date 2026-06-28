@@ -1,5 +1,6 @@
 import React from "react";
 import { Sun, Moon, SunMoon, Sunrise, Sunset, MapPin } from "lucide-react";
+import SensorsPanel from "./SensorsPanel.jsx";
 
 const OPTIONS = [
   { key: "light", label: "Svetlý", Icon: Sun },
@@ -97,6 +98,10 @@ export default function Settings({ theme }) {
             „Auto" prepína svetlý/tmavý podľa západu slnka v tvojej polohe (čas berie zo zariadenia).
           </div>
         )}
+
+        {/* Pripojené snímače (presunuté z mockupu „Appka") */}
+        <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--text-2)", letterSpacing: 0.5, marginTop: 26, marginBottom: 10 }}>PRIPOJENÉ SNÍMAČE</div>
+        <SensorsPanel />
       </div>
     </div>
   );
