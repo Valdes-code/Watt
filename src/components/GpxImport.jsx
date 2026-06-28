@@ -1,20 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Upload, Check, MapPin, Zap, Mountain, AlertCircle, Clock, X } from "lucide-react";
 import { importGpx } from "../lib/gpx.js";
+import { loadHistory, saveHistory, pushHistory as pushHistoryStore, removeFromHistory } from "../lib/history.js";
 // Zabudovaná ukážková trasa (reálne GPX z mapy.com – okolie Karvinej).
 import karvinaGpx from "../lib/samples/karvina.gpx?raw";
 
 const DEMO = { name: "Karvina.gpx", gpx: karvinaGpx };
-
-// História importov v localStorage (uchová raw GPX, aby sa dala trasa znova načítať).
-const HKEY = "watt_gpx_history";
-const HMAX = 8;
-const loadHistory = () => {
-  try { return JSON.parse(localStorage.getItem(HKEY)) || []; } catch { return []; }
-};
-const saveHistory = (arr) => {
-  try { localStorage.setItem(HKEY, JSON.stringify(arr)); } catch { /* plný/zakázaný storage */ }
-};
 
 export default function GpxImport({ onImported, activeGpx }) {
   const [status, setStatus] = useState("idle");
@@ -26,15 +17,8 @@ export default function GpxImport({ onImported, activeGpx }) {
   const [history, setHistory] = useState(loadHistory);
 
   // Pridaj/posuň trasu na vrchol histórie (dedup podľa obsahu GPX, max HMAX).
-  const pushHistory = (name, text, ride) => {
-    const entry = { id: String(Date.now()), name, dist: ride.distanceKm, planned: !!ride.planned, ts: Date.now(), gpx: text };
-    setHistory((h) => {
-      const next = [entry, ...h.filter((e) => e.gpx !== text)].slice(0, HMAX);
-      saveHistory(next);
-      return next;
-    });
-  };
-  const removeHistory = (id) => setHistory((h) => { const next = h.filter((e) => e.id !== id); saveHistory(next); return next; });
+  const pushHistory = (name, text, ride) => setHistory(pushHistoryStore(name, text, ride));
+  const removeHistory = (id) => setHistory(removeFromHistory(id));
 
   // Po úspešnom načítaní odroluj na panel „Trasa pripravená", nech ho netreba hľadať.
   useEffect(() => {

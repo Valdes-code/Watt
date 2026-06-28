@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import CycloWattPreview from "./components/CycloWattPreview.jsx";
 import RideAnalysis from "./components/RideAnalysis.jsx";
 import GpxImport from "./components/GpxImport.jsx";
+import RideHistory from "./components/RideHistory.jsx";
 import PoseDetectionDemo from "./components/PoseDetectionDemo.jsx";
 import Settings from "./components/Settings.jsx";
 import { importGpx } from "./lib/gpx.js";
@@ -11,6 +12,7 @@ const VIEWS = {
   preview: { label: "Appka", Component: CycloWattPreview },
   ride: { label: "Analýza jazdy", Component: RideAnalysis },
   gpx: { label: "Import GPX", Component: GpxImport },
+  history: { label: "História jázd", Component: RideHistory },
   pose: { label: "Detekcia polohy", Component: PoseDetectionDemo },
   profile: { label: "Profil", Component: Settings },
 };
@@ -45,6 +47,7 @@ export default function App() {
   const renderActive = () => {
     if (view === "ride") return <RideAnalysis imported={imported} onClearImport={clearImport} />;
     if (view === "gpx") return <GpxImport onImported={handleImported} activeGpx={activeGpx} />;
+    if (view === "history") return <RideHistory onOpen={handleImported} activeGpx={activeGpx} onGoImport={() => setView("gpx")} />;
     if (view === "pose") return <PoseDetectionDemo />;
     if (view === "profile") return <Settings theme={theme} />;
     return <CycloWattPreview />;
