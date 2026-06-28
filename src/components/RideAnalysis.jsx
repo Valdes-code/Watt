@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Polyline, CircleMarker, useMapEvents, useMap }
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
-  Zap, Heart, Gauge, TrendingUp, MapPin, Cpu, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Mountain,
+  Zap, Heart, Gauge, TrendingUp, MapPin, Cpu, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Mountain, Repeat,
 } from "lucide-react";
 // Zdieľaný fyzikálny engine (pozri src/lib/physics.js)
 import { airDensity, estimateCdA, calcPower, physicsTrust, fuse, hrZone } from "../lib/physics.js";
@@ -500,10 +500,11 @@ export default function RideAnalysis({ imported, onClearImport }) {
               {imported.planned ? "plán · odhad" : imported.hasPower ? "merač" : "z fyziky"}
             </span>
             <button onClick={onClearImport} title="Vybrať inú jazdu" style={{
-              background: "none", border: "none", cursor: "pointer", color: "var(--text-2)",
-              display: "flex", alignItems: "center", padding: 2,
+              display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer",
+              background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 9,
+              padding: "5px 10px", fontSize: 11.5, fontWeight: 700, color: "var(--text-1)", flexShrink: 0,
             }}>
-              <X size={15} />
+              <Repeat size={13} /> Vybrať inú
             </button>
           </div>
         )}
