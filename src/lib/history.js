@@ -92,13 +92,16 @@ export const importHistoryEntries = (entries) => {
   return next;
 };
 
-// Pridá/posunie trasu na vrchol histórie. Identický obsah GPX sa nezdvojuje
-// (len sa posunie navrch); pri zhode názvu s inou trasou pridá „(2)", „(3)"…
+// Pridá trasu na vrchol histórie ako samostatný záznam. Aj duplicitný súbor
+// (rovnaký obsah) sa ponechá – pri zhode názvu dostane „(2)", „(3)"…
 export const pushHistory = (name, text, ride) => {
-  const deduped = loadHistory().filter((e) => e.gpx !== text);
-  const finalName = uniqueName(name, new Set(deduped.map((e) => e.name)));
-  const entry = { id: String(Date.now()), name: finalName, dist: ride.distanceKm, planned: !!ride.planned, ts: Date.now(), gpx: text };
-  const next = [entry, ...deduped].slice(0, loadHistoryMax());
+  const cur = loadHistory();
+  const finalName = uniqueName(name, new Set(cur.map((e) => e.name)));
+  const entry = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: finalName, dist: ride.distanceKm, planned: !!ride.planned, ts: Date.now(), gpx: text,
+  };
+  const next = [entry, ...cur].slice(0, loadHistoryMax());
   saveHistory(next);
   return next;
 };

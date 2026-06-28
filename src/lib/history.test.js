@@ -39,15 +39,15 @@ describe("uniqueName", () => {
 });
 
 describe("pushHistory – číslovanie pri zhode názvu", () => {
-  it("rovnaký obsah sa nezdvojuje (len posun navrch)", () => {
+  it("duplicitný súbor (rovnaký obsah) sa ponechá ako Karvina(2)", () => {
     pushHistory("Karvina.gpx", "<gpx>A</gpx>", ride());
     pushHistory("Karvina.gpx", "<gpx>A</gpx>", ride());
     const h = loadHistory();
-    expect(h).toHaveLength(1);
-    expect(h[0].name).toBe("Karvina.gpx");
+    expect(h).toHaveLength(2);
+    expect(h.map((e) => e.name).sort()).toEqual(["Karvina(2).gpx", "Karvina.gpx"]);
   });
 
-  it("rovnaký názov + iný obsah → Karvina(2), Karvina(3)", () => {
+  it("rovnaký názov (rôzny aj rovnaký obsah) → Karvina(2), Karvina(3)", () => {
     pushHistory("Karvina.gpx", "<gpx>A</gpx>", ride());
     pushHistory("Karvina.gpx", "<gpx>B</gpx>", ride());
     pushHistory("Karvina.gpx", "<gpx>C</gpx>", ride());
