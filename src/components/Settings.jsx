@@ -1,6 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { Sun, Moon, SunMoon, Sunrise, Sunset, MapPin } from "lucide-react";
 import SensorsPanel from "./SensorsPanel.jsx";
+import { loadHistoryMax, saveHistoryMax } from "../lib/history.js";
+
+// Presety veľkosti histórie jázd (počet uchovaných trás).
+const HSIZES = [5, 8, 15, 25, 50];
 
 const OPTIONS = [
   { key: "light", label: "Svetlý", Icon: Sun },
@@ -25,6 +29,7 @@ const fmtTime = (d) =>
 
 export default function Settings({ theme }) {
   const { mode, effective, sun, coords, geo, change } = theme;
+  const [histMax, setHistMax] = useState(loadHistoryMax);
 
   const geoLabel = {
     idle: "—",
@@ -98,6 +103,28 @@ export default function Settings({ theme }) {
             „Auto" prepína svetlý/tmavý podľa západu slnka v tvojej polohe (čas berie zo zariadenia).
           </div>
         )}
+
+        {/* História jázd – veľkosť zoznamu */}
+        <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--text-2)", letterSpacing: 0.5, marginTop: 26, marginBottom: 10 }}>HISTÓRIA JÁZD</div>
+        <div style={{ fontSize: 11.5, color: "var(--text-3)", lineHeight: 1.5, marginBottom: 10 }}>
+          Koľko posledných trás sa uchová v zozname. Ukladá sa v zariadení.
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {HSIZES.map((n) => {
+            const on = histMax === n;
+            return (
+              <button key={n} onClick={() => setHistMax(saveHistoryMax(n))} style={{
+                flex: 1, padding: "12px 6px", borderRadius: 12, cursor: "pointer", fontSize: 14, fontWeight: 800,
+                border: on ? "1px solid #ffd54a" : "1px solid var(--border)",
+                background: on ? "rgba(255,213,74,0.12)" : "var(--surface)",
+                color: on ? "#ffd54a" : "var(--text-2)",
+              }}>{n}</button>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: 11, color: "var(--text-4)", marginTop: 8, lineHeight: 1.5 }}>
+          Pri znížení sa najstaršie trasy nad limit odstránia. Veľa trás zaberá viac miesta v zariadení.
+        </div>
 
         {/* Pripojené snímače (presunuté z mockupu „Appka") */}
         <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--text-2)", letterSpacing: 0.5, marginTop: 26, marginBottom: 10 }}>PRIPOJENÉ SNÍMAČE</div>

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { MapPin, Clock, X, Upload, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
 import { importGpx } from "../lib/gpx.js";
-import { loadHistory, saveHistory, removeFromHistory } from "../lib/history.js";
+import { loadHistory, saveHistory, removeFromHistory, loadHistoryMax } from "../lib/history.js";
 
 // Typ trasy z prípony názvu súboru (gpx, fit, tcx…). Bez prípony → „gpx".
 const fileType = (name) => {
@@ -62,7 +62,7 @@ export default function RideHistory({ onOpen, activeGpx, onGoImport }) {
         </div>
         <div style={{ fontSize: 12.5, color: "var(--text-2)", marginTop: 6, marginBottom: 20, lineHeight: 1.5 }}>
           {history.length > 0
-            ? "Klikni na jazdu pre otvorenie v Analýze. Ukladá sa posledných 8 trás."
+            ? `Klikni na jazdu pre otvorenie v Analýze. Ukladá sa posledných ${loadHistoryMax()} trás (zmeníš v Profile).`
             : "Tu sa zbierajú tvoje importované jazdy."}
         </div>
 

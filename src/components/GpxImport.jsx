@@ -16,7 +16,7 @@ export default function GpxImport({ onImported, activeGpx }) {
   const doneRef = useRef(null);
   const [history, setHistory] = useState(loadHistory);
 
-  // Pridaj/posuň trasu na vrchol histórie (dedup podľa obsahu GPX, max HMAX).
+  // Pridaj/posuň trasu na vrchol histórie (dedup podľa obsahu GPX; limit v Profile).
   const pushHistory = (name, text, ride) => setHistory(pushHistoryStore(name, text, ride));
   const removeHistory = (id) => setHistory(removeFromHistory(id));
 
