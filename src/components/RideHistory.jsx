@@ -3,11 +3,34 @@ import { MapPin, Clock, X, Upload, ChevronRight } from "lucide-react";
 import { importGpx } from "../lib/gpx.js";
 import { loadHistory, saveHistory, removeFromHistory } from "../lib/history.js";
 
+// Typ trasy z prípony názvu súboru (gpx, fit, tcx…). Bez prípony → „gpx".
+const fileType = (name) => {
+  const m = /\.([a-z0-9]+)$/i.exec(name || "");
+  return (m ? m[1] : "gpx").toLowerCase();
+};
+
+const SORTS = [
+  { key: "date", label: "Dátum" },
+  { key: "dist", label: "Vzdialenosť" },
+  { key: "type", label: "Typ" },
+];
+
 // Záložka „História jázd" – zoznam všetkých uložených trás (zdieľané s Import GPX).
 // Klik na jazdu ju otvorí v „Analýza jazdy"; krížik ju odstráni z histórie.
 export default function RideHistory({ onOpen, activeGpx, onGoImport }) {
   const [history, setHistory] = useState(loadHistory);
   const [error, setError] = useState(null);
+  const [sort, setSort] = useState("date");
+
+  // Zoradenie len pre zobrazenie (uložené poradie ostáva = poradie importov).
+  const sorted = [...history].sort((a, b) => {
+    if (sort === "dist") return b.dist - a.dist;            // najdlhšie najprv
+    if (sort === "type") {
+      const t = fileType(a.name).localeCompare(fileType(b.name));
+      return t !== 0 ? t : b.ts - a.ts;                     // v rámci typu najnovšie najprv
+    }
+    return b.ts - a.ts;                                     // dátum: najnovšie najprv
+  });
 
   const open = (e) => {
     try {
@@ -39,6 +62,25 @@ export default function RideHistory({ onOpen, activeGpx, onGoImport }) {
           <div style={{ background: "#ff54701a", border: "1px solid #ff547055", borderRadius: 12, padding: 12, marginBottom: 14, fontSize: 12, color: "#ff5470", fontWeight: 600 }}>{error}</div>
         )}
 
+        {history.length > 1 && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: 0.5, marginBottom: 7 }}>ZORADIŤ PODĽA</div>
+            <div style={{ display: "flex", gap: 7 }}>
+              {SORTS.map(({ key, label }) => {
+                const on = sort === key;
+                return (
+                  <button key={key} onClick={() => setSort(key)} style={{
+                    flex: 1, padding: "8px 6px", borderRadius: 10, cursor: "pointer", fontSize: 11.5, fontWeight: 700,
+                    border: on ? "1px solid #ffd54a" : "1px solid var(--border)",
+                    background: on ? "rgba(255,213,74,0.12)" : "var(--surface)",
+                    color: on ? "#ffd54a" : "var(--text-2)",
+                  }}>{label}</button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {history.length === 0 ? (
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: 22, textAlign: "center" }}>
             <Clock size={30} color="var(--text-3)" style={{ marginBottom: 10 }} />
@@ -54,7 +96,7 @@ export default function RideHistory({ onOpen, activeGpx, onGoImport }) {
             </button>
           </div>
         ) : (
-          history.map((e) => {
+          sorted.map((e) => {
             const active = e.gpx === activeGpx;
             return (
               <div key={e.id} onClick={() => open(e)} title={active ? "Práve zobrazená v Analýze jazdy" : undefined} style={{
@@ -76,6 +118,7 @@ export default function RideHistory({ onOpen, activeGpx, onGoImport }) {
                   <div style={{ fontSize: 11, color: "var(--text-3)", marginTop: 3, display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
                     <span>{new Date(e.ts).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><MapPin size={11} color="#7fb0ff" />{e.dist.toFixed(1)} km</span>
+                    <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.4, color: "var(--text-2)", background: "var(--surface-3)", border: "1px solid var(--border)", borderRadius: 5, padding: "1px 5px", textTransform: "uppercase" }}>{fileType(e.name)}</span>
                     {e.planned && <span style={{ color: "#ffd54a", fontWeight: 700 }}>plán</span>}
                   </div>
                 </div>
