@@ -578,7 +578,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
                 pathOptions={{ color: "#0d1320", weight: 2, fillColor: "#ff5470", fillOpacity: 1 }} />
               {/* aktuálny bod */}
               <CircleMarker center={latlngs[cIdx]} radius={9}
-                pathOptions={{ color: "#fff", weight: 3, fillColor: "#fff", fillOpacity: 1 }} />
+                pathOptions={{ color: "#0d1320", weight: 3, fillColor: "#7fb0ff", fillOpacity: 1 }} />
             </MapContainer>
           </div>
 
