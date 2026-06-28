@@ -33,6 +33,24 @@ export const saveHistoryMax = (n) => {
   return v;
 };
 
+// Rozdelí názov na základ a príponu: „Karvina.gpx" → { base:"Karvina", ext:".gpx" }.
+const splitName = (name) => {
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? { base: name.slice(0, dot), ext: name.slice(dot) } : { base: name, ext: "" };
+};
+
+// Vráti názov jedinečný v rámci `taken` (Set názvov). Pri zhode pridá „(2)",
+// „(3)"… Ak názov už končí na „(n)", číslovanie sa odvíja od holého základu.
+export const uniqueName = (name, taken) => {
+  if (!taken.has(name)) return name;
+  const { base, ext } = splitName(name);
+  const m = /^(.*)\((\d+)\)$/.exec(base);
+  const root = m ? m[1] : base;
+  let n = 2, candidate;
+  do { candidate = `${root}(${n})${ext}`; n++; } while (taken.has(candidate));
+  return candidate;
+};
+
 // Normalizuje jeden záznam zo zálohy (tolerantne, s rozumnými predvolbami).
 const normalizeEntry = (e, i) => ({
   id: String(e.id || `${e.ts || 0}-${i}`),
@@ -54,14 +72,19 @@ export const importHistoryEntries = (entries) => {
 
   const seenGpx = new Set();
   const usedIds = new Set();
+  const takenNames = new Set();
   const merged = [];
-  for (const e of [...clean, ...loadHistory()]) {
+  // Existujúce najprv (zachovajú si názvy); importované s novým obsahom, ktoré
+  // majú zhodný názov, dostanú „(2)", „(3)"…
+  for (const e of [...loadHistory(), ...clean]) {
     if (seenGpx.has(e.gpx)) continue;
     seenGpx.add(e.gpx);
     let id = e.id;
     while (usedIds.has(id)) id = id + "_";
     usedIds.add(id);
-    merged.push({ ...e, id });
+    const name = uniqueName(e.name, takenNames);
+    takenNames.add(name);
+    merged.push({ ...e, id, name });
   }
   merged.sort((a, b) => b.ts - a.ts);
   const next = merged.slice(0, loadHistoryMax());
@@ -69,10 +92,13 @@ export const importHistoryEntries = (entries) => {
   return next;
 };
 
-// Pridá/posunie trasu na vrchol histórie (dedup podľa obsahu GPX). Vracia nové pole.
+// Pridá/posunie trasu na vrchol histórie. Identický obsah GPX sa nezdvojuje
+// (len sa posunie navrch); pri zhode názvu s inou trasou pridá „(2)", „(3)"…
 export const pushHistory = (name, text, ride) => {
-  const entry = { id: String(Date.now()), name, dist: ride.distanceKm, planned: !!ride.planned, ts: Date.now(), gpx: text };
-  const next = [entry, ...loadHistory().filter((e) => e.gpx !== text)].slice(0, loadHistoryMax());
+  const deduped = loadHistory().filter((e) => e.gpx !== text);
+  const finalName = uniqueName(name, new Set(deduped.map((e) => e.name)));
+  const entry = { id: String(Date.now()), name: finalName, dist: ride.distanceKm, planned: !!ride.planned, ts: Date.now(), gpx: text };
+  const next = [entry, ...deduped].slice(0, loadHistoryMax());
   saveHistory(next);
   return next;
 };
