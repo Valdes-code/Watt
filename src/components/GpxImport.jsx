@@ -53,7 +53,9 @@ export default function GpxImport({ onImported, activeGpx }) {
     planned: ride.planned,
   });
 
-  const parseText = (name, text) => {
+  // remember=true => nový import (pridá/posunie na vrch histórie).
+  // remember=false => výber z histórie (poradie ostáva, len sa označí ako vybratá).
+  const parseText = (name, text, remember = true) => {
     setStatus("loading");
     setResult(null);
     setError(null);
@@ -64,7 +66,7 @@ export default function GpxImport({ onImported, activeGpx }) {
         setResult(toResult(name, ride));
         setFullRide({ name, ride, gpx: text });
         setStatus("done");
-        pushHistory(name, text, ride);
+        if (remember) pushHistory(name, text, ride);
       } catch (e) {
         setError(e.message);
         setStatus("error");
@@ -133,21 +135,25 @@ export default function GpxImport({ onImported, activeGpx }) {
         ) : (
           history.map((e) => {
             const active = e.gpx === activeGpx;
+            const selected = e.gpx === fullRide?.gpx;
+            const hl = active || selected; // zvýraznenie bez zmeny poradia
             return (
-            <div key={e.id} onClick={() => parseText(e.name, e.gpx)} title={active ? "Práve zobrazená v Analýze jazdy" : undefined} style={{
+            <div key={e.id} onClick={() => parseText(e.name, e.gpx, false)} title={active ? "Práve zobrazená v Analýze jazdy" : undefined} style={{
               display: "flex", alignItems: "center", gap: 12,
-              background: active ? "rgba(255,213,74,0.08)" : "var(--surface)",
-              border: active ? "1px solid #ffd54a" : "1px solid var(--border)",
+              background: hl ? "rgba(255,213,74,0.08)" : "var(--surface)",
+              border: hl ? "1px solid #ffd54a" : "1px solid var(--border)",
               borderRadius: 12, padding: 12, marginBottom: 9, cursor: "pointer",
             }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: active ? "rgba(255,213,74,0.15)" : "#7fb0ff14", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Clock size={16} color={active ? "#ffd54a" : "#7fb0ff"} />
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: hl ? "rgba(255,213,74,0.15)" : "#7fb0ff14", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Clock size={16} color={hl ? "#ffd54a" : "#7fb0ff"} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</span>
-                  {active && (
+                  {active ? (
                     <span style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: 0.4, color: "#ffd54a", background: "rgba(255,213,74,0.15)", borderRadius: 6, padding: "2px 6px", whiteSpace: "nowrap" }}>AKTÍVNA</span>
+                  ) : selected && (
+                    <span style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: 0.4, color: "#ffd54a", background: "rgba(255,213,74,0.15)", borderRadius: 6, padding: "2px 6px", whiteSpace: "nowrap" }}>VYBRATÁ</span>
                   )}
                 </div>
                 <div style={{ fontSize: 10.5, color: "var(--text-3)" }}>
