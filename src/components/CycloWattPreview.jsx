@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   Zap, Heart, Wind, Gauge, TrendingUp, Activity, Cpu,
-  Bluetooth, MapPin, User, Play, Pause, Check, Search, X,
+  Bluetooth, MapPin, Play, Pause, Check, Search, X,
 } from "lucide-react";
 // Zdieľaný fyzikálny engine (pozri src/lib/physics.js)
 import { airDensity, estimateCdA, calcPower, physicsTrust, fuse, hrZone } from "../lib/physics.js";
@@ -56,7 +56,6 @@ export default function CycloWattPreview() {
         <div style={{ flex: 1, overflowY: "auto" }}>
           {tab === "ride" && <RideTab />}
           {tab === "sensors" && <SensorsTab />}
-          {tab === "profile" && <ProfileTab />}
         </div>
 
         {/* tab bar */}
@@ -66,7 +65,6 @@ export default function CycloWattPreview() {
         }}>
           <TabBtn icon={Zap} label="Jazda" active={tab === "ride"} onClick={() => setTab("ride")} />
           <TabBtn icon={Bluetooth} label="Snímače" active={tab === "sensors"} onClick={() => setTab("sensors")} />
-          <TabBtn icon={User} label="Profil" active={tab === "profile"} onClick={() => setTab("profile")} />
         </div>
       </div>
     </div>
@@ -276,33 +274,3 @@ function LiveChip({ label, value, unit, c }) {
 
 const sectionStyle = { fontSize: 11, fontWeight: 700, color: "#ffd54a", letterSpacing: 0.5, marginTop: 16, marginBottom: 8 };
 const deviceStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", background: "#101725", border: "1px solid #1e2940", borderRadius: 12, padding: 13, marginBottom: 8 };
-
-// ── PROFILE TAB ──────────────────────────────────────────────────
-function ProfileTab() {
-  const rows = [
-    { l: "Hmotnosť jazdca", v: "75 kg" },
-    { l: "Hmotnosť bicykla", v: "8.5 kg" },
-    { l: "Výška", v: "180 cm" },
-    { l: "Poloha tela", v: "Základná" },
-    { l: "Pneumatiky", v: "Cestný tréningový" },
-    { l: "Šírka / tlak", v: "28 mm / 6 bar" },
-    { l: "Tubeless", v: "Áno" },
-    { l: "Pokojový / max tep", v: "60 / 190 bpm" },
-  ];
-  return (
-    <div style={{ padding: 16 }}>
-      <div style={{ fontSize: 15, fontWeight: 800, color: "#fff", marginBottom: 14 }}>Profil</div>
-      <div style={{ background: "#101725", border: "1px solid #1e2940", borderRadius: 16, overflow: "hidden" }}>
-        {rows.map((r, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "13px 14px", borderBottom: i < rows.length - 1 ? "1px solid #1e2940" : "none" }}>
-            <span style={{ fontSize: 12.5, color: "#8a99b8" }}>{r.l}</span>
-            <span style={{ fontSize: 12.5, color: "#fff", fontWeight: 600 }}>{r.v}</span>
-          </div>
-        ))}
-      </div>
-      <button style={{ width: "100%", background: "#ffd54a", border: "none", borderRadius: 12, padding: 14, marginTop: 16, cursor: "pointer", fontSize: 14, fontWeight: 800, color: "#0d1320" }}>
-        Upraviť profil
-      </button>
-    </div>
-  );
-}

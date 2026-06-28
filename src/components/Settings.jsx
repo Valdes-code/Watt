@@ -7,6 +7,18 @@ const OPTIONS = [
   { key: "auto", label: "Auto", Icon: SunMoon },
 ];
 
+// Profil jazdca / bicykla (presunuté z mockupu „Appka").
+const PROFILE_ROWS = [
+  { l: "Hmotnosť jazdca", v: "75 kg" },
+  { l: "Hmotnosť bicykla", v: "8.5 kg" },
+  { l: "Výška", v: "180 cm" },
+  { l: "Poloha tela", v: "Základná" },
+  { l: "Pneumatiky", v: "Cestný tréningový" },
+  { l: "Šírka / tlak", v: "28 mm / 6 bar" },
+  { l: "Tubeless", v: "Áno" },
+  { l: "Pokojový / max tep", v: "60 / 190 bpm" },
+];
+
 const fmtTime = (d) =>
   d ? d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }) : "—";
 
@@ -26,8 +38,22 @@ export default function Settings({ theme }) {
       <div style={{ width: 400, maxWidth: "100%" }}>
         <div style={{ fontSize: 19, fontWeight: 800, color: "var(--text)" }}>Profil</div>
         <div style={{ fontSize: 12.5, color: "var(--text-2)", marginTop: 6, marginBottom: 20, lineHeight: 1.5 }}>
-          Nastavenia aplikácie.
+          Profil jazdca a nastavenia aplikácie.
         </div>
+
+        {/* Profil jazdca / bicykla */}
+        <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--text-2)", letterSpacing: 0.5, marginBottom: 10 }}>PROFIL JAZDCA</div>
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", marginBottom: 12 }}>
+          {PROFILE_ROWS.map((r, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "12px 14px", borderBottom: i < PROFILE_ROWS.length - 1 ? "1px solid var(--border)" : "none" }}>
+              <span style={{ fontSize: 12.5, color: "var(--text-2)" }}>{r.l}</span>
+              <span style={{ fontSize: 12.5, color: "var(--text)", fontWeight: 600 }}>{r.v}</span>
+            </div>
+          ))}
+        </div>
+        <button style={{ width: "100%", background: "#ffd54a", border: "none", borderRadius: 12, padding: 13, marginBottom: 22, cursor: "pointer", fontSize: 13.5, fontWeight: 800, color: "#0d1320" }}>
+          Upraviť profil
+        </button>
 
         {/* Zobrazenie – téma */}
         <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--text-2)", letterSpacing: 0.5, marginBottom: 10 }}>ZOBRAZENIE</div>
