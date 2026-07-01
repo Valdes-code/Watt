@@ -51,7 +51,7 @@ export default function App() {
         : <GpxImport onImported={handleImported} activeGpx={activeGpx} />;
     if (view === "history") return <RideHistory onOpen={handleImported} activeGpx={activeGpx} onGoImport={pickAnother} />;
     if (view === "pose") return <PoseDetectionDemo />;
-    if (view === "profile") return <Settings theme={theme} user={user} />;
+    if (view === "profile") return <Settings theme={theme} user={user} onUserChange={setUser} />;
     return <CycloWattPreview />;
   };
 
