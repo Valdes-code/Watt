@@ -4,6 +4,32 @@ Zoznam väčších vecí, ku ktorým sa vrátime. Hotové každodenné úpravy t
 
 ---
 
+## 🟦 Vyžaduje natívnu / Capacitor appku (nie server, ale platformu)
+
+### Reálne pripojenie BLE snímačov (tep / výkon / kadencia)
+**Stav:** odložené — panel „Pripojené snímače" je zatiaľ simulácia. Diskutované 2026-07.
+
+**Cieľ:** naozaj pripojiť BLE snímače a ich dáta použiť v jazde aj v Tréningovom
+stave (napr. reálny wattmeter → presný TSS).
+
+**Prečo nie hneď (nie je to o serveri):**
+- **Web Bluetooth** funguje len na **Androide / desktop Chrome**; **iOS Safari
+  ho nepodporuje** vôbec.
+- Užitočné nahrávanie počas jazdy (zamknutá obrazovka) potrebuje beh na pozadí →
+  **natívna / Capacitor** appka.
+
+**Kroky:**
+- [ ] Web Bluetooth pre Android/Chrome (HR, power, cadence profily) – dá sa aj bez
+      servera, ale len na podporovaných platformách.
+- [ ] Napojiť živé dáta do záznamu jazdy a do TSS.
+- [ ] iOS: cez Capacitor plugin (BLE) v natívnom balíku.
+- [ ] Súvisí s „Online tracking" (živé nahrávanie jazdy).
+
+> Pozn.: dáta zo snímačov **už zaznamenané v GPX** (wattmeter/tep) používame
+> aj teraz – reálny výkon ide do TSS. Chýba len **živé** pripojenie.
+
+---
+
 ## 🟥 Vyžaduje server + webovú appku (vrátiť sa pri riešení backendu)
 
 ### Zdieľanie trasy jazdy s priateľmi (vrátane avíza Prijať/Odmietnuť)
