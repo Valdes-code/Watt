@@ -134,7 +134,7 @@ export default function Settings({ theme, user, onUserChange }) {
                 </div>
               )}
               {on && !editing && (
-                <span style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: 0.4, color: "#ffd54a", background: "rgba(255,213,74,0.15)", borderRadius: 6, padding: "2px 6px", flexShrink: 0 }}>AKTÍVNY</span>
+                <span style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: 0.4, color: effective === "light" ? "#8a6a00" : "#ffd54a", background: "rgba(255,213,74,0.15)", borderRadius: 6, padding: "2px 6px", flexShrink: 0 }}>AKTÍVNY</span>
               )}
               {editing && user.bikes.length > 1 && (
                 <button onClick={(e) => { e.stopPropagation(); removeBike(b.id); }} title="Odstrániť bicykel" style={{ background: "transparent", border: "none", color: "#ff5470", cursor: "pointer", padding: 4, display: "flex", flexShrink: 0 }}>
