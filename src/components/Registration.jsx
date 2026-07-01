@@ -8,12 +8,13 @@ const FIELDS = [
   { key: "nick", label: "Prezývka", type: "text", placeholder: "napr. Janko", required: true },
   { key: "email", label: "E-mail (nepovinné)", type: "email", placeholder: "pre budúce prepojenie účtu" },
   { key: "riderKg", label: "Hmotnosť jazdca (kg)", type: "number", placeholder: "75", required: true },
-  { key: "bikeKg", label: "Hmotnosť bicykla (kg)", type: "number", placeholder: "8.5" },
   { key: "heightCm", label: "Výška (cm)", type: "number", placeholder: "180" },
+  { key: "bikeName", label: "Názov bicykla", type: "text", placeholder: "napr. Cestný" },
+  { key: "bikeKg", label: "Hmotnosť bicykla (kg)", type: "number", placeholder: "8.5" },
 ];
 
 export default function Registration({ onDone }) {
-  const [form, setForm] = useState({ nick: "", email: "", riderKg: "", bikeKg: "", heightCm: "" });
+  const [form, setForm] = useState({ nick: "", email: "", riderKg: "", heightCm: "", bikeName: "", bikeKg: "" });
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const valid = form.nick.trim().length > 0 && Number(form.riderKg) > 0;
@@ -24,8 +25,9 @@ export default function Registration({ onDone }) {
       nick: form.nick.trim(),
       email: form.email.trim() || null,
       riderKg: Number(form.riderKg) || 75,
-      bikeKg: Number(form.bikeKg) || 8.5,
       heightCm: Number(form.heightCm) || 180,
+      bikeName: form.bikeName.trim() || "Bicykel 1",
+      bikeKg: Number(form.bikeKg) || 8.5,
     });
     onDone(user);
   };

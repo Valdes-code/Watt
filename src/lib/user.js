@@ -15,7 +15,7 @@ export const normalizeUser = (u) => {
   if (!u) return u;
   let bikes = Array.isArray(u.bikes) ? u.bikes : null;
   if (!bikes || bikes.length === 0) {
-    bikes = [{ id: newBikeId(), name: "Bicykel 1", weightKg: Number(u.bikeKg) || 8.5 }];
+    bikes = [{ id: newBikeId(), name: u.bikeName || "Bicykel 1", weightKg: Number(u.bikeKg) || 8.5 }];
   }
   let activeBikeId = u.activeBikeId;
   if (!activeBikeId || !bikes.some((b) => b.id === activeBikeId)) activeBikeId = bikes[0].id;
