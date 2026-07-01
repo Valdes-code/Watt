@@ -5,7 +5,9 @@ import GpxImport from "./components/GpxImport.jsx";
 import RideHistory from "./components/RideHistory.jsx";
 import PoseDetectionDemo from "./components/PoseDetectionDemo.jsx";
 import Settings from "./components/Settings.jsx";
+import Registration from "./components/Registration.jsx";
 import { useTheme } from "./lib/useTheme.js";
+import { loadUser } from "./lib/user.js";
 
 // „Analýza jazdy" je zlúčená: najprv výber/import jazdy, po vybraní sa zobrazí
 // analýza s mapou. Samostatná záložka „Import GPX" už nie je.
@@ -21,6 +23,7 @@ export default function App() {
   const [view, setView] = useState("ride");
   const [imported, setImported] = useState(null); // { name, ...analyzeRide() } – vybraná jazda
   const [activeGpx, setActiveGpx] = useState(null); // GPX práve aktívnej trasy (na zvýraznenie v histórii)
+  const [user, setUser] = useState(loadUser); // null = ešte neregistrovaný
   const theme = useTheme();
 
   // Po spustení appky sa zobrazí výber jazdy. Poslednú trasu z histórie len
@@ -48,9 +51,12 @@ export default function App() {
         : <GpxImport onImported={handleImported} activeGpx={activeGpx} />;
     if (view === "history") return <RideHistory onOpen={handleImported} activeGpx={activeGpx} onGoImport={pickAnother} />;
     if (view === "pose") return <PoseDetectionDemo />;
-    if (view === "profile") return <Settings theme={theme} />;
+    if (view === "profile") return <Settings theme={theme} user={user} />;
     return <CycloWattPreview />;
   };
+
+  // Prvé spustenie: kým nie je profil, ukáž registráciu (pridelí jedinečné UID).
+  if (!user) return <Registration onDone={setUser} />;
 
   return (
     <div style={{ background: "var(--bg-app)", minHeight: "100vh" }}>

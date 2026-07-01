@@ -12,24 +12,22 @@ const OPTIONS = [
   { key: "auto", label: "Auto", Icon: SunMoon },
 ];
 
-// Profil jazdca / bicykla (presunuté z mockupu „Appka").
-const PROFILE_ROWS = [
-  { l: "Hmotnosť jazdca", v: "75 kg" },
-  { l: "Hmotnosť bicykla", v: "8.5 kg" },
-  { l: "Výška", v: "180 cm" },
-  { l: "Poloha tela", v: "Základná" },
-  { l: "Pneumatiky", v: "Cestný tréningový" },
-  { l: "Šírka / tlak", v: "28 mm / 6 bar" },
-  { l: "Tubeless", v: "Áno" },
-  { l: "Pokojový / max tep", v: "60 / 190 bpm" },
+// Riadky profilu jazdca – z registrovaných údajov (s rozumnými predvolbami).
+const profileRows = (user) => [
+  { l: "Prezývka", v: user?.nick || "—" },
+  { l: "E-mail", v: user?.email || "—" },
+  { l: "Hmotnosť jazdca", v: `${user?.riderKg ?? 75} kg` },
+  { l: "Hmotnosť bicykla", v: `${user?.bikeKg ?? 8.5} kg` },
+  { l: "Výška", v: `${user?.heightCm ?? 180} cm` },
 ];
 
 const fmtTime = (d) =>
   d ? d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }) : "—";
 
-export default function Settings({ theme }) {
+export default function Settings({ theme, user }) {
   const { mode, effective, sun, coords, geo, change } = theme;
   const [histMax, setHistMax] = useState(loadHistoryMax);
+  const PROFILE_ROWS = profileRows(user);
 
   const geoLabel = {
     idle: "—",
@@ -57,6 +55,12 @@ export default function Settings({ theme }) {
             </div>
           ))}
         </div>
+        {user?.uid && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 12, padding: "10px 12px", marginBottom: 12 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)" }}>ID účtu</span>
+            <span title={user.uid} style={{ marginLeft: "auto", fontSize: 11, fontFamily: "monospace", color: "var(--text-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>{user.uid}</span>
+          </div>
+        )}
         <button style={{ width: "100%", background: "#ffd54a", border: "none", borderRadius: 12, padding: 13, marginBottom: 22, cursor: "pointer", fontSize: 13.5, fontWeight: 800, color: "#0d1320" }}>
           Upraviť profil
         </button>
