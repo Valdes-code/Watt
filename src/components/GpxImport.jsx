@@ -75,7 +75,7 @@ export default function GpxImport({ onImported, activeGpx }) {
 
   return (
     <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 50% 0%, var(--bg-grad-1), var(--bg-grad-2) 60%)", padding: 22, fontFamily: "'Inter',sans-serif", display: "flex", justifyContent: "center" }}>
-      <div style={{ width: 400 }}>
+      <div style={{ width: 400, maxWidth: "100%" }}>
         <div style={{ fontSize: 19, fontWeight: 800, color: "var(--text)" }}>Vyber jazdu na analýzu</div>
         <div style={{ fontSize: 12.5, color: "var(--text-2)", marginTop: 6, marginBottom: 20, lineHeight: 1.5 }}>
           Načítaj GPX súbor alebo vyber z histórie nižšie. Po vybraní sa zobrazí analýza s mapou.

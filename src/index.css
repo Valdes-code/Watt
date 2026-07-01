@@ -38,6 +38,9 @@
 }
 body { background: var(--bg-app); }
 
+/* Nič nesmie pretekať cez ľavý/pravý okraj zariadenia. */
+html, body { max-width: 100%; overflow-x: hidden; }
+
 /* Zvislý posuvník celej appky – zladený s tmavým pozadím / transparentný,
    nech neruší. Jemne viditeľný len pri hoveri, aby sa dal chytiť. */
 html {
