@@ -58,7 +58,7 @@ export default function Settings({ theme, user, onUserChange }) {
 
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(180deg, var(--bg-grad-1), var(--bg-grad-2) 55%)", padding: 22, fontFamily: "'Inter',sans-serif", display: "flex", justifyContent: "center" }}>
-      <div style={{ width: 400, maxWidth: "100%" }}>
+      <div style={{ width: 400, maxWidth: "100%", minWidth: 0 }}>
         <div style={{ fontSize: 19, fontWeight: 800, color: "var(--text)" }}>Profil</div>
         <div style={{ fontSize: 12.5, color: "var(--text-2)", marginTop: 6, marginBottom: 20, lineHeight: 1.5 }}>
           Profil jazdca a nastavenia aplikácie.
@@ -94,9 +94,9 @@ export default function Settings({ theme, user, onUserChange }) {
         ) : (
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", marginBottom: 12 }}>
             {RIDER_ROWS.map((r, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "12px 14px", borderBottom: i < RIDER_ROWS.length - 1 ? "1px solid var(--border)" : "none" }}>
-                <span style={{ fontSize: 12.5, color: "var(--text-2)" }}>{r.l}</span>
-                <span style={{ fontSize: 12.5, color: "var(--text)", fontWeight: 600 }}>{r.v}</span>
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "12px 14px", borderBottom: i < RIDER_ROWS.length - 1 ? "1px solid var(--border)" : "none" }}>
+                <span style={{ fontSize: 12.5, color: "var(--text-2)", flexShrink: 0 }}>{r.l}</span>
+                <span style={{ fontSize: 12.5, color: "var(--text)", fontWeight: 600, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>{r.v}</span>
               </div>
             ))}
           </div>

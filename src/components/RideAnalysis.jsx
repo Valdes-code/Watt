@@ -468,7 +468,7 @@ export default function RideAnalysis({ imported, onClearImport }) {
       background: "radial-gradient(circle at 50% -10%, var(--bg-grad-1) 0%, var(--bg-grad-2) 55%, var(--bg-app) 100%)",
       padding: 20, fontFamily: "'Inter',sans-serif", display: "flex", justifyContent: "center",
     }}>
-      <div style={{ width: 400, maxWidth: "100%" }}>
+      <div style={{ width: 400, maxWidth: "100%", minWidth: 0 }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 16 }}>
           <div style={{

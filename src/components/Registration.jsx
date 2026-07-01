@@ -34,7 +34,7 @@ export default function Registration({ onDone }) {
 
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(180deg, var(--bg-grad-1), var(--bg-grad-2) 55%)", padding: 22, fontFamily: "'Inter',sans-serif", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
-      <div style={{ width: 400, maxWidth: "100%", marginTop: 24 }}>
+      <div style={{ width: 400, maxWidth: "100%", minWidth: 0, marginTop: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
           <div style={{ width: 40, height: 40, borderRadius: 12, background: "rgba(255,213,74,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <User size={20} color="#ffd54a" />

@@ -130,7 +130,7 @@ export default function RideHistory({ onOpen, activeGpx, onGoImport }) {
 
   return (
     <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 50% 0%, var(--bg-grad-1), var(--bg-grad-2) 60%)", padding: 22, fontFamily: "'Inter',sans-serif", display: "flex", justifyContent: "center" }}>
-      <div style={{ width: 400, maxWidth: "100%" }}>
+      <div style={{ width: 400, maxWidth: "100%", minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ fontSize: 19, fontWeight: 800, color: "var(--text)" }}>História jázd</div>
           {history.length > 0 && (
