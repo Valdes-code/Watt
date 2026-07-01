@@ -46,6 +46,7 @@ export default function Settings({ theme, user, onUserChange }) {
     { l: "E-mail", v: user?.email || "—" },
     { l: "Hmotnosť jazdca", v: `${user?.riderKg ?? 75} kg` },
     { l: "Výška", v: `${user?.heightCm ?? 180} cm` },
+    { l: "FTP (funkčný výkon)", v: user?.ftp ? `${user.ftp} W` : `~${Math.round((user?.riderKg ?? 75) * 2.5)} W (odhad)` },
   ];
 
   const geoLabel = {
@@ -89,6 +90,9 @@ export default function Settings({ theme, user, onUserChange }) {
             </Field>
             <Field label="Výška (cm)">
               <input style={inputStyle} type="number" inputMode="numeric" defaultValue={user.heightCm ?? 180} onBlur={(e) => persist({ heightCm: Number(e.target.value) || user.heightCm })} />
+            </Field>
+            <Field label="FTP – funkčný výkon (W)">
+              <input style={inputStyle} type="number" inputMode="numeric" placeholder={`~${Math.round((user.riderKg ?? 75) * 2.5)} (odhad z hmotnosti)`} defaultValue={user.ftp || ""} onBlur={(e) => persist({ ftp: Number(e.target.value) || null })} />
             </Field>
           </div>
         ) : (

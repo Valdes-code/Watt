@@ -3,6 +3,7 @@ import CycloWattPreview from "./components/CycloWattPreview.jsx";
 import RideAnalysis from "./components/RideAnalysis.jsx";
 import GpxImport from "./components/GpxImport.jsx";
 import RideHistory from "./components/RideHistory.jsx";
+import TrainingStatus from "./components/TrainingStatus.jsx";
 import PoseDetectionDemo from "./components/PoseDetectionDemo.jsx";
 import Settings from "./components/Settings.jsx";
 import Registration from "./components/Registration.jsx";
@@ -14,6 +15,7 @@ import { loadUser } from "./lib/user.js";
 const VIEWS = {
   ride: { label: "Analýza jazdy" },
   history: { label: "História jázd" },
+  training: { label: "Tréningový stav" },
   preview: { label: "Appka" },
   pose: { label: "Detekcia polohy" },
   profile: { label: "Profil" },
@@ -50,6 +52,7 @@ export default function App() {
         ? <RideAnalysis imported={imported} onClearImport={pickAnother} />
         : <GpxImport onImported={handleImported} activeGpx={activeGpx} />;
     if (view === "history") return <RideHistory onOpen={handleImported} activeGpx={activeGpx} onGoImport={pickAnother} />;
+    if (view === "training") return <TrainingStatus user={user} />;
     if (view === "pose") return <PoseDetectionDemo />;
     if (view === "profile") return <Settings theme={theme} user={user} onUserChange={setUser} />;
     return <CycloWattPreview />;
