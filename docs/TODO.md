@@ -36,6 +36,32 @@ sa pridá do jeho Histórie jázd) alebo **odmietnuť**.
 
 ---
 
+### Online tracking (živé nahrávanie jazdy + živé zdieľanie polohy)
+**Stav:** odložené. Diskutované 2026-07.
+
+**Cieľ:** naživo nahrávať jazdu (poloha, rýchlosť, vzdialenosť, prevýšenie,
+odhad výkonu) a voliteľne umožniť priateľom sledovať polohu naživo online.
+
+**Dve úrovne:**
+1. *(Bez servera, dá sa skôr)* **Živé nahrávanie jazdy** vo web appke:
+   - [ ] `navigator.geolocation.watchPosition` → živá trasa na mape.
+   - [ ] Živé metriky (rýchlosť, vzdialenosť, prevýšenie, odhad výkonu z fyziky).
+   - [ ] **Wake Lock** (držať obrazovku zapnutú) + upozornenie na spotrebu batérie.
+   - [ ] Po skončení uložiť jazdu do Histórie (GPX).
+   - ⚠️ **Limit webu:** iOS Safari pozastaví JS na pozadí / pri zamknutej
+         obrazovke → tracking sa zastaví. Spoľahlivé background GPS až v
+         natívnej appke / **Capacitor** wrapperi.
+   - ⚠️ BLE snímače (tep/výkon) cez Web Bluetooth len Android/Chrome, nie iOS Safari.
+2. *(Backend)* **Živé zdieľanie polohy** – priateľ vidí cez odkaz, kde práve som:
+   - [ ] Účty + real-time kanál (WebSocket / Firebase / Supabase).
+   - [ ] Publikovanie polohy + verejný/priateľský živý náhľad.
+   - [ ] Súvisí s účtami a zdieľaním z bodu „Zdieľanie trasy".
+
+**Odporúčaná cesta pre background GPS:** zabaliť web cez **Capacitor** (alebo
+natívna appka) – umožní GPS na pozadí aj pri zamknutom telefóne.
+
+---
+
 ### Cloudová história jázd / ukladanie na server
 **Stav:** odložené — spomenuté pri limite localStorage.
 - [ ] Ukladanie celej histórie jázd (napr. všetky GPX za rok) na server namiesto
